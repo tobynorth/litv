@@ -18,5 +18,8 @@
   "homepage": "https://github.com/tobynorth/litv#readme",
   "dependencies": {
     "boardgame.io": "^0.50.2"
+  },
+  "devDependencies": {
+    "parcel-bundler": "^1.12.5"
   }
 }
