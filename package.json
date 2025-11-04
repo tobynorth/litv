@@ -1,0 +1,22 @@
+{
+  "name": "litv",
+  "version": "1.0.0",
+  "description": "Lights in the Void: Coronal Loop",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tobynorth/litv.git"
+  },
+  "author": "Toby North",
+  "license": "AGPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/tobynorth/litv/issues"
+  },
+  "homepage": "https://github.com/tobynorth/litv#readme",
+  "dependencies": {
+    "boardgame.io": "^0.50.2"
+  }
+}
