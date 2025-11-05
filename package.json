@@ -4,8 +4,10 @@
   "description": "Lights in the Void: Coronal Loop",
   "main": "index.js",
   "scripts": {
+    "start": "parcel index.html --open",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "browserslist": "defaults and supports async-functions",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tobynorth/litv.git"
