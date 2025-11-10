@@ -1,10 +1,30 @@
 "use strict";
 
 import { Game } from 'boardgame.io';
-//import { INVALID_MOVE } from 'boardgame.io/core';
+import { INVALID_MOVE } from 'boardgame.io/core';
+
+enum Direction {
+  W = "W",
+  NW = "NW",
+  NE = "NE",
+  E = "E",
+  SE = "SE",
+  SW = "SW",
+}
+
+const DIRECTIONS = {
+  [Direction.W]:  { q: -1, r: 0, s: 1 },
+  [Direction.NW]:  { q: 0, r: -1, s: 1 },
+  [Direction.NE]: { q: 1, r: -1, s: 0 },
+  [Direction.E]:  { q: 1, r: 0, s: -1 },
+  [Direction.SE]: { q: 0, r: 1, s: -1 },
+  [Direction.SW]:  { q: -1, r: 1, s: 0 },
+} as const satisfies Record<Direction, CubeCoords>;
 
 interface LightsInTheVoidState {
+  shipLocation: string
   hexBoard: Record<string, HexCell>;
+  reverseHexBoard: Record<string, string>;
 }
 
 type HexCell = {
@@ -36,14 +56,18 @@ type CubeCoords = { q: number; r: number; s: number };
 
 function generateHexes() {
   // Add the HOME hex
-  var hexes: Record<string, HexCell> = {
+  let hexes: Record<string, HexCell> = {
     "HOME": {
       cubeCoords: { q: 0, r: 0, s: 0 },
       token: null,
     }
   };
 
-  var sectorCurrentHexes: Record<string, HexCell> = {
+  let reverseHexes: Record<string, string> = {
+    "0,0,0": "HOME",
+  };
+
+  let sectorCurrentHexes: Record<string, HexCell> = {
     "A": { 
       cubeCoords: { q: -1, r: 0, s: 1 },
       token: null,
@@ -71,18 +95,19 @@ function generateHexes() {
   };
 
   // Add hexes A1 to F28
-  var direction = -1;
+  let direction = -1;
   for (let c = "A".charCodeAt(0); c <= "F".charCodeAt(0); c++) {
     const letter = String.fromCharCode(c);
-    var currHex = sectorCurrentHexes[letter];
-    var currCoords = currHex.cubeCoords;
-    var posC: keyof CubeCoords = currCoords.q > 0 ? "q" : (currCoords.r > 0 ? "r" : "s"),
+    let currHex = sectorCurrentHexes[letter];
+    let currCoords = currHex.cubeCoords;
+    let posC: keyof CubeCoords = currCoords.q > 0 ? "q" : (currCoords.r > 0 ? "r" : "s"),
           negC: keyof CubeCoords = currCoords.q < 0 ? "q" : (currCoords.r < 0 ? "r" : "s"),
           zeroC: keyof CubeCoords = currCoords.q === 0 ? "q" : (currCoords.r === 0 ? "r" : "s");
 
     for (let i = 1; i <= 28; i++) {
       const key = `${letter}${i}`;
       hexes[key] = structuredClone(currHex);
+      reverseHexes[`${currCoords.q},${currCoords.r},${currCoords.s}`] = key;
 
       // Update currCoords for next hex
       if (direction === 1) {
@@ -108,27 +133,53 @@ function generateHexes() {
     direction *= -1;
   }
 
-  return hexes;
+  return { hexes, reverseHexes };
 }
 
+function getNeighborCoords(cubeCoords: CubeCoords, direction: Direction): CubeCoords | null {
+  const dirOffset = DIRECTIONS[direction];
+
+  let newQ = cubeCoords.q + dirOffset.q;
+  let newR = cubeCoords.r + dirOffset.r;
+  let newS = cubeCoords.s + dirOffset.s;
+
+  // Check if out of bounds (more than 7 hexes from HOME)
+  const distanceFromHome = Math.max(Math.abs(newQ), Math.abs(newR), Math.abs(newS));
+  if (distanceFromHome > 7) return null;
+
+  return { q: newQ, r: newR, s: newS };
+}
+
+
 export const LightsInTheVoid: Game<LightsInTheVoidState> = {
-  setup: () => ({
-    hexBoard: generateHexes(),
-  }),
+  setup: () => {
+    const { hexes, reverseHexes } = generateHexes();
+    return {
+      shipLocation: "HOME",
+      hexBoard: hexes,
+      reverseHexBoard: reverseHexes,
+    };
+  },
 
   turn: {
     minMoves: 1,
     maxMoves: 1,
   },
 
-  // moves: {
-  //   clickCell: ({ G, playerID }, id) => {
-  //     if (G.cells[id] !== null) {
-  //       return INVALID_MOVE;
-  //     }
-  //     G.cells[id] = playerID;
-  //   },
-  // },
+  moves: {
+    moveShip: ({ G }, dir: Direction) => {
+      let newCoords = getNeighborCoords(G.hexBoard[G.shipLocation].cubeCoords, dir);
+      if (newCoords === null) {
+        return INVALID_MOVE;
+      }
+
+      // use hexBoardReverse to get the new hex key
+      let newHexKey = G.reverseHexBoard[`${newCoords.q},${newCoords.r},${newCoords.s}`];
+
+      // Update the ship location to the new hex
+      G.shipLocation = newHexKey;
+    },
+  },
 
   // endIf: ({ G, ctx }) => {
   //   if (IsVictory(G.cells)) {
