@@ -150,6 +150,18 @@ function getNeighborCoords(cubeCoords: CubeCoords, direction: Direction): CubeCo
   return { q: newQ, r: newR, s: newS };
 }
 
+export function moveShip({ G }: { G: LightsInTheVoidState }, dir: Direction) {
+  let newCoords = getNeighborCoords(G.hexBoard[G.shipLocation].cubeCoords, dir);
+  if (newCoords === null) {
+    return INVALID_MOVE;
+  }
+
+  // use hexBoardReverse to get the new hex key
+  let newHexKey = G.reverseHexBoard[`${newCoords.q},${newCoords.r},${newCoords.s}`];
+
+  // Update the ship location to the new hex
+  G.shipLocation = newHexKey;
+};
 
 export const LightsInTheVoid: Game<LightsInTheVoidState> = {
   setup: () => {
@@ -167,18 +179,7 @@ export const LightsInTheVoid: Game<LightsInTheVoidState> = {
   },
 
   moves: {
-    moveShip: ({ G }, dir: Direction) => {
-      let newCoords = getNeighborCoords(G.hexBoard[G.shipLocation].cubeCoords, dir);
-      if (newCoords === null) {
-        return INVALID_MOVE;
-      }
-
-      // use hexBoardReverse to get the new hex key
-      let newHexKey = G.reverseHexBoard[`${newCoords.q},${newCoords.r},${newCoords.s}`];
-
-      // Update the ship location to the new hex
-      G.shipLocation = newHexKey;
-    },
+    moveShip,
   },
 
   // endIf: ({ G, ctx }) => {
