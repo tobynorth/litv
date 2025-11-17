@@ -12,6 +12,28 @@ enum Direction {
   SW = "SW",
 }
 
+enum CelestialBodyType {
+  Red = "red",
+  Orange = "orange",
+  Yellow = "yellow",
+  White = "white",
+  Blue = "blue",
+  Planet = "planet",
+  WhiteDwarf = "white-dwarf",
+  BrownDwarf = "brown-dwarf",
+  Nebula = "nebula",
+  NeutronStar = "neutron-star",
+  BlackHole = "black-hole",
+  Wormhole = "wormhole",
+  Any = "any",
+}
+
+enum CelestialBodySize {
+  Normal = "normal",
+  Giant = "giant",
+  Supergiant = "super-giant",
+}
+
 const DIRECTIONS = {
   [Direction.W]:  { q: -1, r: 0, s: 1 },
   [Direction.NW]:  { q: 0, r: -1, s: 1 },
@@ -26,6 +48,45 @@ interface LightsInTheVoidState {
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
 }
+
+type CelestialBody = 
+    {
+      type: CelestialBodyType.Red |
+            CelestialBodyType.Orange |
+            CelestialBodyType.Yellow |
+            CelestialBodyType.White |
+            CelestialBodyType.Blue |
+            CelestialBodyType.Nebula |
+            CelestialBodyType.BlackHole,
+      size: CelestialBodySize
+    } 
+  | { type: CelestialBodyType.Planet }
+  | { type: CelestialBodyType.WhiteDwarf }
+  | { type: CelestialBodyType.BrownDwarf }
+  | { type: CelestialBodyType.NeutronStar };
+type CelestialBodyToken = CelestialBody | { type: CelestialBodyType.Wormhole, destinationHex: string };
+type CelestialBodyIcon = (CelestialBody | { type: CelestialBodyType.Any}) & {count: number};
+
+type ItineraryIcon = { name: string, imageSrc: string };
+
+type Card = {
+  title: string;
+  subtitle: string;
+  imageSrc: string;
+  flavorText: string;
+  hexCoordinate: string;
+  zoneNumber: number;
+  radius: {
+    unit: string;
+    value: number;
+  };
+  distance: {
+    unit: string;
+    value: number;
+  };
+  celestialBodyIcons: CelestialBodyIcon[];
+  itineraryIcons: ItineraryIcon[];
+};
 
 type HexCell = {
   cubeCoords: CubeCoords;
