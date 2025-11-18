@@ -164,6 +164,72 @@
           "imageSrc": "path/to/test_itinerary.png"
         }
       ]
+    },
+    {
+      "title": "Test Zone 1 Card #5",
+      "subtitle": "Subtitle",
+      "imageSrc": "path/to/image.png",
+      "flavorText": "This is a test card that players start the game with.",
+      "hexCoordinate": "E5",
+      "zoneNumber": 1,
+      "radius": {
+        "unit": "km",
+        "value": 100000
+      },
+      "distance": {
+        "unit": "ly",
+        "value": 0
+      },
+      "celestialBodyIcons": [
+        {
+          "type": "yellow",
+          "size": "normal",
+          "count": 1
+        },
+        {
+          "type": "planet",
+          "count": 8
+        }
+      ],
+      "itineraryIcons": [
+        {
+          "name": "Test itinerary",
+          "imageSrc": "path/to/test_itinerary.png"
+        }
+      ]
+    },
+    {
+      "title": "Test Zone 1 Card #6",
+      "subtitle": "Subtitle",
+      "imageSrc": "path/to/image.png",
+      "flavorText": "This is a test card that players start the game with.",
+      "hexCoordinate": "F6",
+      "zoneNumber": 1,
+      "radius": {
+        "unit": "km",
+        "value": 100000
+      },
+      "distance": {
+        "unit": "ly",
+        "value": 0
+      },
+      "celestialBodyIcons": [
+        {
+          "type": "yellow",
+          "size": "normal",
+          "count": 1
+        },
+        {
+          "type": "planet",
+          "count": 8
+        }
+      ],
+      "itineraryIcons": [
+        {
+          "name": "Test itinerary",
+          "imageSrc": "path/to/test_itinerary.png"
+        }
+      ]
     }
   ]
 }
