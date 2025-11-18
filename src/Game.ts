@@ -41,10 +41,11 @@ const DIRECTIONS = {
   [Direction.E]:  { q: 1, r: 0, s: -1 },
   [Direction.SE]: { q: 0, r: 1, s: -1 },
   [Direction.SW]:  { q: -1, r: 1, s: 0 },
-} as const satisfies Record<Direction, CubeCoords>;
+} as const satisfies Record<Direction, CubeCoords>; 
 
 interface LightsInTheVoidState {
   shipLocation: string
+  zoneDecks: Record<string, Card[]>;
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
 }
@@ -69,7 +70,7 @@ type CelestialBodyIcon = (CelestialBody | { type: CelestialBodyType.Any}) & {cou
 
 type ItineraryIcon = { name: string, imageSrc: string };
 
-type Card = {
+export type Card = {
   title: string;
   subtitle: string;
   imageSrc: string;
@@ -224,11 +225,12 @@ export function moveShip({ G }: { G: LightsInTheVoidState }, dir: Direction) {
   G.shipLocation = newHexKey;
 };
 
-export const LightsInTheVoid: Game<LightsInTheVoidState> = {
+export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<LightsInTheVoidState> => ({
   setup: () => {
     const { hexes, reverseHexes } = generateHexes();
     return {
       shipLocation: "HOME",
+      zoneDecks: cards,
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
     };
@@ -263,4 +265,4 @@ export const LightsInTheVoid: Game<LightsInTheVoidState> = {
   //     return moves;
   //   },
   // },
-};
+});

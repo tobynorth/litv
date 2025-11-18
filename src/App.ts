@@ -1,12 +1,16 @@
 import { Client } from 'boardgame.io/client';
-import { LightsInTheVoid } from './Game';
+import { Card, makeLightsInTheVoidGame } from './Game';
+import { CardLoader } from './data/CardLoader';
 
 class LightsInTheVoidClient {
   client: ReturnType<typeof Client>;
-  constructor() {
-    this.client = Client({ game: LightsInTheVoid });
+  constructor(cards: Record<string, Card[]>) {
+    const litv = makeLightsInTheVoidGame(cards);
+    this.client = Client({ game: litv });
     this.client.start();
   }
 }
 
-const app = new LightsInTheVoidClient();
+let cards = CardLoader.loadCards().then((loadedCards) => {
+  const app = new LightsInTheVoidClient(loadedCards);
+});
