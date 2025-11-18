@@ -44,6 +44,8 @@ const DIRECTIONS = {
 } as const satisfies Record<Direction, CubeCoords>; 
 
 interface LightsInTheVoidState {
+  justDrawnCards: Card[];
+  detectedStarSystems: Card[];
   shipLocation: string
   zoneDecks: Record<string, Card[]>;
   hexBoard: Record<string, HexCell>;
@@ -225,11 +227,30 @@ export function moveShip({ G }: { G: LightsInTheVoidState }, dir: Direction) {
   G.shipLocation = newHexKey;
 };
 
+export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number) {
+  if (zoneNumber < 1 || zoneNumber > Object.keys(G.zoneDecks).length) {
+    return INVALID_MOVE;
+  }
+  const zoneDeck = G.zoneDecks[zoneNumber];
+  if (zoneDeck.length === 0) {
+    return INVALID_MOVE;
+  }
+  let drawnCard = zoneDeck.pop()!;
+  G.justDrawnCards = [drawnCard];
+  if (G.detectedStarSystems.length < 5) {
+    G.detectedStarSystems.push(drawnCard);
+  } else {
+    //TODO: implement setStage("discardDetectedStarSystem");
+  }
+}
+
 export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<LightsInTheVoidState> => ({
   setup: () => {
     const { hexes, reverseHexes } = generateHexes();
     return {
       shipLocation: "HOME",
+      justDrawnCards: [],
+      detectedStarSystems: Array.from({ length: 5 }, () => cards[1].pop()!),
       zoneDecks: cards,
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
@@ -243,6 +264,7 @@ export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<Lig
 
   moves: {
     moveShip,
+    drawCard,
   },
 
   // endIf: ({ G, ctx }) => {
