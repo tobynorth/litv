@@ -44,7 +44,6 @@ const DIRECTIONS = {
 } as const satisfies Record<Direction, CubeCoords>; 
 
 interface LightsInTheVoidState {
-  justDrawnCards: Card[];
   detectedStarSystems: Card[];
   shipLocation: string
   zoneDecks: Record<string, Card[]>;
@@ -236,20 +235,29 @@ export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number)
     return INVALID_MOVE;
   }
   let drawnCard = zoneDeck.pop()!;
-  G.justDrawnCards = [drawnCard];
-  if (G.detectedStarSystems.length < 5) {
-    G.detectedStarSystems.push(drawnCard);
-  } else {
-    //TODO: implement setStage("discardDetectedStarSystem");
+  if (G.detectedStarSystems.length >= 5) {
+    // just auto-discard the oldest detected star system
+    // TODO: replace with proper discard logic later
+    G.detectedStarSystems.shift();
   }
+  G.detectedStarSystems.push(drawnCard);
 }
+
+// TODO: implement card selection for discard. something like below, maybe...
+// export function discardDetectedStarSystem({ G, events }: { G: LightsInTheVoidState, events: any }, cardToDiscardIndex: number) {
+//   if (cardToDiscardIndex < 0 || cardToDiscardIndex >= G.detectedStarSystems.length) {
+//     return INVALID_MOVE;
+//   }
+//   G.detectedStarSystems[cardToDiscardIndex] = G.justDrawnCards[0];
+//   G.justDrawnCards = [];
+//   events.endStage();
+// }
 
 export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<LightsInTheVoidState> => ({
   setup: () => {
     const { hexes, reverseHexes } = generateHexes();
     return {
       shipLocation: "HOME",
-      justDrawnCards: [],
       detectedStarSystems: Array.from({ length: 5 }, () => cards[1].pop()!),
       zoneDecks: cards,
       hexBoard: hexes,
@@ -260,6 +268,13 @@ export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<Lig
   turn: {
     minMoves: 1,
     maxMoves: 1,
+    // stages: {
+    //   discardDetectedStarSystem: {
+    //     moves: {
+    //       discardDetectedStarSystem
+    //     },
+    //   },
+    // }
   },
 
   moves: {
