@@ -46,13 +46,23 @@ const DIRECTIONS = {
 interface LightsInTheVoidState {
   playerItineraryCards: Record<string, ItineraryCard>;
   detectedStarSystems: StarSystemCard[];
-  shipLocation: string;
+  shipStatus: ShipStatus;
   playerPoints: Record<string, number>;
   playedCards: StarSystemCard[];
   zoneDecks: Record<string, StarSystemCard[]>;
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
 }
+
+type ShipStatus = {
+  location: string;
+  energy: number;
+  maxEnergy: number;
+  armor: number;
+  maxArmor: number;
+  numResearchTokens: number;
+  speed: number;
+};
 
 type CelestialBody = 
     {
@@ -236,7 +246,11 @@ function getNeighborCoords(cubeCoords: CubeCoords, direction: Direction): CubeCo
 }
 
 export function moveShip({ G }: { G: LightsInTheVoidState }, dir: Direction) {
-  let newCoords = getNeighborCoords(G.hexBoard[G.shipLocation].cubeCoords, dir);
+  if (G.shipStatus.energy <= 1) {
+    return INVALID_MOVE;
+  }
+
+  let newCoords = getNeighborCoords(G.hexBoard[G.shipStatus.location].cubeCoords, dir);
   if (newCoords === null) {
     return INVALID_MOVE;
   }
@@ -245,7 +259,8 @@ export function moveShip({ G }: { G: LightsInTheVoidState }, dir: Direction) {
   let newHexKey = G.reverseHexBoard[`${newCoords.q},${newCoords.r},${newCoords.s}`];
 
   // Update the ship location to the new hex
-  G.shipLocation = newHexKey;
+  G.shipStatus.location = newHexKey;
+  G.shipStatus.energy -= 1;
 };
 
 export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number) {
@@ -269,7 +284,7 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   if (
       cardIndex < 0
       || cardIndex >= G.detectedStarSystems.length
-      || G.shipLocation !== G.detectedStarSystems[cardIndex].hexCoordinate
+      || G.shipStatus.location !== G.detectedStarSystems[cardIndex].hexCoordinate
     ) {
     return INVALID_MOVE;
   }
@@ -316,7 +331,7 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   }
 
   // place token on board
-  G.hexBoard[G.shipLocation].token = token;
+  G.hexBoard[G.shipStatus.location].token = token;
 }
 
 // TODO: implement card selection for discard. something like below, maybe...
@@ -333,7 +348,15 @@ export const makeLightsInTheVoidGame = (cards: Record<string, StarSystemCard[]>,
   setup: ({ ctx }) => {
     const { hexes, reverseHexes } = generateHexes();
     return {
-      shipLocation: "HOME",
+      shipStatus: {
+        location: "HOME",
+        energy: 5,
+        maxEnergy: 5,
+        armor: 5,
+        maxArmor: 5,
+        numResearchTokens: 0,
+        speed: 1,
+      },
       playerItineraryCards: Object.fromEntries(
         Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), itineraryCards[i]])
       ),
