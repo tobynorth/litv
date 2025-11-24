@@ -199,6 +199,35 @@
       ]
     },
     {
+      "title": "Test Zone 2 ANY Card",
+      "subtitle": "Subtitle",
+      "imageSrc": "path/to/image.png",
+      "flavorText": "This is a test zone 2 card with an ANY icon.",
+      "hexCoordinate": "C1",
+      "zoneNumber": 2,
+      "radius": {
+        "unit": "km",
+        "value": 100000
+      },
+      "distance": {
+        "unit": "ly",
+        "value": 0
+      },
+      "celestialBodyIcons": [
+        {
+          "type": "any",
+          "size": "normal",
+          "count": 1
+        }
+      ],
+      "itineraryIcons": [
+        {
+          "name": "Test itinerary",
+          "imageSrc": "path/to/test_itinerary.png"
+        }
+      ]
+    },
+    {
       "title": "Test Zone 1 Card #6",
       "subtitle": "Subtitle",
       "imageSrc": "path/to/image.png",
@@ -231,5 +260,6 @@
         }
       ]
     }
+
   ]
 }
