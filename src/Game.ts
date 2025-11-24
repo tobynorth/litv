@@ -45,7 +45,9 @@ const DIRECTIONS = {
 
 interface LightsInTheVoidState {
   detectedStarSystems: Card[];
-  shipLocation: string
+  shipLocation: string;
+  playerPoints: Record<string, number>;
+  playedCards: Card[];
   zoneDecks: Record<string, Card[]>;
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
@@ -68,6 +70,12 @@ type CelestialBody =
   | { type: CelestialBodyType.NeutronStar };
 type CelestialBodyToken = CelestialBody | { type: CelestialBodyType.Wormhole, destinationHex: string };
 type CelestialBodyIcon = (CelestialBody | { type: CelestialBodyType.Any}) & {count: number};
+
+type AllowedAnyIconType = CelestialBodyType.Red |
+        CelestialBodyType.Orange |
+        CelestialBodyType.Yellow |
+        CelestialBodyType.White |
+        CelestialBodyType.Blue;
 
 type ItineraryIcon = { name: string, imageSrc: string };
 
@@ -92,7 +100,7 @@ export type Card = {
 
 type HexCell = {
   cubeCoords: CubeCoords;
-  token: any | null;
+  token: CelestialBodyToken | null;
 };
 
 type CubeCoords = { q: number; r: number; s: number };
@@ -243,6 +251,51 @@ export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number)
   G.detectedStarSystems.push(drawnCard);
 }
 
+export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: string }, cardIndex: number) {
+  if (
+      cardIndex < 0
+      || cardIndex >= G.detectedStarSystems.length
+      || G.shipLocation !== G.detectedStarSystems[cardIndex].hexCoordinate
+    ) {
+    return INVALID_MOVE;
+  }
+  
+  // Move card to played cards
+  let cardToPlay = G.detectedStarSystems.splice(cardIndex, 1)[0];
+  G.playedCards.push(cardToPlay);
+
+  // Calculate points
+  let points = cardToPlay.zoneNumber * 2 - 1;
+  G.playerPoints[playerID] += points;
+  
+  // Randomly choose icon to play as token based on card's celestialBodyIcons
+  // TODO: allow player to choose which icon to play instead of random
+  let iconIndex = Math.floor(Math.random() * cardToPlay.celestialBodyIcons.length);
+  let selectedIcon = cardToPlay.celestialBodyIcons[iconIndex];
+
+  // If selectedIcon is of type 'any', randomly choose a concrete type. Otherwise, just place a token of that type.
+  let tokenType;
+  let token: CelestialBodyToken;
+  if (selectedIcon.type === CelestialBodyType.Any) {
+    const concreteTypes: AllowedAnyIconType[] = [
+      CelestialBodyType.Red,
+      CelestialBodyType.Orange,
+      CelestialBodyType.Yellow,
+      CelestialBodyType.White,
+      CelestialBodyType.Blue,
+    ];
+    tokenType = concreteTypes[Math.floor(Math.random() * concreteTypes.length)];
+    token = { type: tokenType, size: CelestialBodySize.Normal };
+  } else if ("size" in selectedIcon) {
+    token = { type: selectedIcon.type, size: selectedIcon.size };
+  } else {
+    token = { type: selectedIcon.type };
+  }
+
+  // place token on board
+  G.hexBoard[G.shipLocation].token = token;
+}
+
 // TODO: implement card selection for discard. something like below, maybe...
 // export function discardDetectedStarSystem({ G, events }: { G: LightsInTheVoidState, events: any }, cardToDiscardIndex: number) {
 //   if (cardToDiscardIndex < 0 || cardToDiscardIndex >= G.detectedStarSystems.length) {
@@ -259,6 +312,8 @@ export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<Lig
     return {
       shipLocation: "HOME",
       detectedStarSystems: Array.from({ length: 5 }, () => cards[1].pop()!),
+      playerPoints: {"0": 0, "1": 0},
+      playedCards: [],
       zoneDecks: cards,
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
@@ -280,6 +335,7 @@ export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<Lig
   moves: {
     moveShip,
     drawCard,
+    playCard,
   },
 
   // endIf: ({ G, ctx }) => {
