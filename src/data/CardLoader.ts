@@ -1,6 +1,7 @@
-import { Card, StarSystemCard, ItineraryCard } from '../Game';
+import { Card, StarSystemCard, ItineraryCard, TokenEffectsConfig } from '../Game';
 import starSystemData from './star_system_cards.json';
 import itineraryData from './itinerary_cards.json';
+import tokenEffectsData from './celestial_body_token_types.json';
 const CDN_URL = "CDN_URL"; // TODO: set CDN URL
 
 export class CardLoader {
@@ -29,6 +30,10 @@ export class CardLoader {
     let cardData = itineraryData.cards as ItineraryCard[];
     const selectedCards = cardData.slice(0, numPlayers);
     return this.shuffleArray(selectedCards) as ItineraryCard[];
+  }
+
+  static async loadTokenEffects(): Promise<TokenEffectsConfig> {
+    return tokenEffectsData as TokenEffectsConfig;
   }
 
   private static shuffleArray(array: Card[]): Card[] {

@@ -122,12 +122,23 @@ export type ItineraryCard = {
   zone4Percentage: number;
 };
 
+export type TokenEffects = {
+  energyChange: number;
+  armorChange: number;
+  researchTokensChange: number;
+};
+
+export type TokenEffectsConfig = Record<string, TokenEffects>;
+
 type HexCell = {
   cubeCoords: CubeCoords;
   token: CelestialBodyToken | null;
 };
 
 type CubeCoords = { q: number; r: number; s: number };
+
+// Module-level variable to store token effects configuration
+let tokenEffectsConfig: TokenEffectsConfig;
 
 // Return true if `cells` is in a winning configuration.
 // function IsVictory(cells: (string | null)[]) {
@@ -334,6 +345,45 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   G.hexBoard[G.shipStatus.location].token = token;
 }
 
+export function collectResources({ G }: { G: LightsInTheVoidState }) {
+  const currentHex = G.hexBoard[G.shipStatus.location];
+  const token = currentHex.token;
+
+  // Return invalid if there's no token on the current hex
+  if (!token) {
+    return INVALID_MOVE;
+  }
+
+  // Build lookup key based on token type and size
+  let lookupKey: string;
+  if ("size" in token) {
+    lookupKey = `${token.type}-${token.size}`;
+  } else if (token.type === CelestialBodyType.Wormhole) {
+    // Skip wormholes for now - they have special behavior
+    return INVALID_MOVE;
+  } else {
+    lookupKey = token.type;
+  }
+
+  // Look up effects in config
+  const effects = tokenEffectsConfig[lookupKey];
+  if (!effects) {
+    // No effects defined for this token type
+    return INVALID_MOVE;
+  }
+
+  // Apply effects to ship status
+  G.shipStatus.energy = Math.min(
+    G.shipStatus.maxEnergy,
+    G.shipStatus.energy + effects.energyChange
+  );
+  G.shipStatus.armor = Math.min(
+    G.shipStatus.maxArmor,
+    G.shipStatus.armor + effects.armorChange
+  );
+  G.shipStatus.numResearchTokens += effects.researchTokensChange;
+}
+
 // TODO: implement card selection for discard. something like below, maybe...
 // export function discardDetectedStarSystem({ G, events }: { G: LightsInTheVoidState, events: any }, cardToDiscardIndex: number) {
 //   if (cardToDiscardIndex < 0 || cardToDiscardIndex >= G.detectedStarSystems.length) {
@@ -344,8 +394,20 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
 //   events.endStage();
 // }
 
-export const makeLightsInTheVoidGame = (cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[]): Game<LightsInTheVoidState> => ({
-  setup: ({ ctx }) => {
+function initializeTokenEffects(config: TokenEffectsConfig) {
+  tokenEffectsConfig = config;
+}
+
+export const makeLightsInTheVoidGame = (
+  cards: Record<string, StarSystemCard[]>,
+  itineraryCards: ItineraryCard[],
+  tokenEffectsConfigParam: TokenEffectsConfig
+): Game<LightsInTheVoidState> => {
+  // Initialize module-level config
+  initializeTokenEffects(tokenEffectsConfigParam);
+
+  return {
+    setup: ({ ctx }) => {
     const { hexes, reverseHexes } = generateHexes();
     return {
       shipStatus: {
@@ -387,6 +449,7 @@ export const makeLightsInTheVoidGame = (cards: Record<string, StarSystemCard[]>,
     moveShip,
     drawCard,
     playCard,
+    collectResources,
   },
 
   // endIf: ({ G, ctx }) => {
@@ -409,4 +472,5 @@ export const makeLightsInTheVoidGame = (cards: Record<string, StarSystemCard[]>,
   //     return moves;
   //   },
   // },
-});
+  };
+};
