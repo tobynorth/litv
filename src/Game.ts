@@ -313,7 +313,7 @@ export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<Lig
       shipLocation: "HOME",
       detectedStarSystems: Array.from({ length: 5 }, () => cards[1].pop()!),
       playerPoints: {"0": 0, "1": 0},
-      playedCards: [],
+      playedCards: [cards[0].pop()!],
       zoneDecks: cards,
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
