@@ -1,13 +1,14 @@
-import { Card } from '../Game';
-import data from './star_system_cards.json';
+import { Card, StarSystemCard, ItineraryCard } from '../Game';
+import starSystemData from './star_system_cards.json';
+import itineraryData from './itinerary_cards.json';
 const CDN_URL = "CDN_URL"; // TODO: set CDN URL
 
 export class CardLoader {
   // Note: this is async in ancticipation of future fetching from CDN if local json file load fails
   // TODO: implement CDN fetch fallback
-  static async loadCards(): Promise<Record<string, Card[]>> {
-    let cardData = data.cards as Card[];
-    const zoneDecks: Record<string, Card[]> = {};
+  static async loadStarSystemCards(): Promise<Record<string, StarSystemCard[]>> {
+    let cardData = starSystemData.cards as StarSystemCard[];
+    const zoneDecks: Record<string, StarSystemCard[]> = {};
     cardData.forEach(card => {
       const zone = card.zoneNumber;
       if (!zoneDecks[zone]) {
@@ -18,10 +19,16 @@ export class CardLoader {
 
     // Shuffle the cards in each zone
     Object.keys(zoneDecks).forEach(zone => {
-      zoneDecks[zone] = this.shuffleArray(zoneDecks[zone]);
+      zoneDecks[zone] = this.shuffleArray(zoneDecks[zone]) as StarSystemCard[];
     });
 
     return zoneDecks;
+  }
+
+  static async loadItineraryCards(numPlayers: number): Promise<ItineraryCard[]> {
+    let cardData = itineraryData.cards as ItineraryCard[];
+    const selectedCards = cardData.slice(0, numPlayers);
+    return this.shuffleArray(selectedCards) as ItineraryCard[];
   }
 
   private static shuffleArray(array: Card[]): Card[] {

@@ -1,16 +1,19 @@
 import { Client } from 'boardgame.io/client';
-import { Card, makeLightsInTheVoidGame } from './Game';
+import { StarSystemCard, ItineraryCard, makeLightsInTheVoidGame } from './Game';
 import { CardLoader } from './data/CardLoader';
 
 class LightsInTheVoidClient {
   client: ReturnType<typeof Client>;
-  constructor(cards: Record<string, Card[]>) {
-    const litv = makeLightsInTheVoidGame(cards);
-    this.client = Client({ game: litv });
+  constructor(starSystemCards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[]) {
+    const litv = makeLightsInTheVoidGame(starSystemCards, itineraryCards);
+    this.client = Client({ game: litv, numPlayers: 2 });
     this.client.start();
   }
 }
 
-let cards = CardLoader.loadCards().then((loadedCards) => {
-  const app = new LightsInTheVoidClient(loadedCards);
+Promise.all([
+  CardLoader.loadStarSystemCards(),
+  CardLoader.loadItineraryCards(2)
+]).then(([starSystemCards, itineraryCards]) => {
+  const app = new LightsInTheVoidClient(starSystemCards, itineraryCards);
 });

@@ -1,0 +1,24 @@
+{
+  "cards": [
+    {
+      "name": "test",
+      "fullName": "Test Itinerary Card!",
+      "flavorText": "This is a test itinerary card that players start the game with.",
+      "pointsPerItineraryIcon": 5,
+      "zone1Percentage": 0.5,
+      "zone2Percentage": 0.3,
+      "zone3Percentage": 0.2,
+      "zone4Percentage": 0.1
+    },
+    {
+      "name": "test2",
+      "fullName": "Test Itinerary Card 2!",
+      "flavorText": "This is a test itinerary card that players start the game with.",
+      "pointsPerItineraryIcon": 6,
+      "zone1Percentage": 0.5,
+      "zone2Percentage": 0.3,
+      "zone3Percentage": 0.2,
+      "zone4Percentage": 0.1
+    }
+  ]
+}

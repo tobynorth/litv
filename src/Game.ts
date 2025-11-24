@@ -44,11 +44,12 @@ const DIRECTIONS = {
 } as const satisfies Record<Direction, CubeCoords>; 
 
 interface LightsInTheVoidState {
-  detectedStarSystems: Card[];
+  playerItineraryCards: Record<string, ItineraryCard>;
+  detectedStarSystems: StarSystemCard[];
   shipLocation: string;
   playerPoints: Record<string, number>;
-  playedCards: Card[];
-  zoneDecks: Record<string, Card[]>;
+  playedCards: StarSystemCard[];
+  zoneDecks: Record<string, StarSystemCard[]>;
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
 }
@@ -79,7 +80,9 @@ type AllowedAnyIconType = CelestialBodyType.Red |
 
 type ItineraryIcon = { name: string, imageSrc: string };
 
-export type Card = {
+export type Card = StarSystemCard | ItineraryCard;
+
+export type StarSystemCard = {
   title: string;
   subtitle: string;
   imageSrc: string;
@@ -96,6 +99,17 @@ export type Card = {
   };
   celestialBodyIcons: CelestialBodyIcon[];
   itineraryIcons: ItineraryIcon[];
+};
+
+export type ItineraryCard = {
+  name: string;
+  fullName: string;
+  flavorText: string;
+  pointsPerItineraryIcon: number;
+  zone1Percentage: number;
+  zone2Percentage: number;
+  zone3Percentage: number;
+  zone4Percentage: number;
 };
 
 type HexCell = {
@@ -264,10 +278,19 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   let cardToPlay = G.detectedStarSystems.splice(cardIndex, 1)[0];
   G.playedCards.push(cardToPlay);
 
-  // Calculate points
+  // Calculate base points from playing the card
   let points = cardToPlay.zoneNumber * 2 - 1;
   G.playerPoints[playerID] += points;
-  
+
+  // Calculate bonus points from itinerary icon matches
+  cardToPlay.itineraryIcons.forEach(itineraryIcon => {
+    Object.entries(G.playerItineraryCards).forEach(playerItineraryCard => {
+      if (itineraryIcon.name === playerItineraryCard[1].name) {
+        G.playerPoints[playerItineraryCard[0]] += playerItineraryCard[1].pointsPerItineraryIcon;
+      }
+    });
+  });
+
   // Randomly choose icon to play as token based on card's celestialBodyIcons
   // TODO: allow player to choose which icon to play instead of random
   let iconIndex = Math.floor(Math.random() * cardToPlay.celestialBodyIcons.length);
@@ -306,11 +329,14 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
 //   events.endStage();
 // }
 
-export const makeLightsInTheVoidGame = (cards: Record<string, Card[]>): Game<LightsInTheVoidState> => ({
-  setup: () => {
+export const makeLightsInTheVoidGame = (cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[]): Game<LightsInTheVoidState> => ({
+  setup: ({ ctx }) => {
     const { hexes, reverseHexes } = generateHexes();
     return {
       shipLocation: "HOME",
+      playerItineraryCards: Object.fromEntries(
+        Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), itineraryCards[i]])
+      ),
       detectedStarSystems: Array.from({ length: 5 }, () => cards[1].pop()!),
       playerPoints: {"0": 0, "1": 0},
       playedCards: [cards[0].pop()!],
