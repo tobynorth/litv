@@ -338,7 +338,9 @@ export const makeLightsInTheVoidGame = (cards: Record<string, StarSystemCard[]>,
         Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), itineraryCards[i]])
       ),
       detectedStarSystems: Array.from({ length: 5 }, () => cards[1].pop()!),
-      playerPoints: {"0": 0, "1": 0},
+      playerPoints: Object.fromEntries(
+        Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), 0])
+      ),
       playedCards: [cards[0].pop()!],
       zoneDecks: cards,
       hexBoard: hexes,
