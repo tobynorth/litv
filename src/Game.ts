@@ -116,6 +116,8 @@ export type ItineraryCard = {
   fullName: string;
   flavorText: string;
   pointsPerItineraryIcon: number;
+  pointsPerMatchingCelestialBodyIcon: number;
+  matchingCelestialBodyIcons: CelestialBody[];
   zone1Percentage: number;
   zone2Percentage: number;
   zone3Percentage: number;
@@ -304,12 +306,29 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   let points = cardToPlay.zoneNumber * 2 - 1;
   G.playerPoints[playerID] += points;
 
-  // Calculate bonus points from itinerary icon matches
+  // Calculate bonus points from itinerary card-itinerary icon matches
   cardToPlay.itineraryIcons.forEach(itineraryIcon => {
     Object.entries(G.playerItineraryCards).forEach(playerItineraryCard => {
       if (itineraryIcon.name === playerItineraryCard[1].name) {
         G.playerPoints[playerItineraryCard[0]] += playerItineraryCard[1].pointsPerItineraryIcon;
       }
+    });
+  });
+
+  // Calculate bonus points from itinerary card-celestial body icon matches
+  cardToPlay.celestialBodyIcons.forEach(celestialBodyIcon => {
+    Object.entries(G.playerItineraryCards).forEach(playerItineraryCard => {
+      playerItineraryCard[1].matchingCelestialBodyIcons.forEach(matchingIcon => {
+        if (
+          celestialBodyIcon.type === matchingIcon.type
+          && (
+            !("size" in celestialBodyIcon && "size" in matchingIcon)
+            || celestialBodyIcon.size === matchingIcon.size
+          )
+        ) {
+          G.playerPoints[playerItineraryCard[0]] += (playerItineraryCard[1].pointsPerMatchingCelestialBodyIcon * celestialBodyIcon.count);
+        }
+      });
     });
   });
 
