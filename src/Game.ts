@@ -343,9 +343,9 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   G.hexBoard[G.shipStatus.location].token = token;
 }
 
-export function collectResources({ G }: { G: LightsInTheVoidState }) {
+export function collectResources({ G }: { G: LightsInTheVoidState }, useToken2: boolean = false) {
   const currentHex = G.hexBoard[G.shipStatus.location];
-  const token = currentHex.token;
+  const token = useToken2 && "token2" in currentHex ? (currentHex as DoubleTokenHexCell).token2 : currentHex.token;
 
   // Return invalid if there's no token on the current hex
   if (!token) {
