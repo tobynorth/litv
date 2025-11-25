@@ -257,10 +257,6 @@ function getNeighborCoords(cubeCoords: CubeCoords, direction: Direction): CubeCo
 }
 
 export function moveShip({ G }: { G: LightsInTheVoidState }, dir: Direction) {
-  if (G.shipStatus.energy <= 1) {
-    return INVALID_MOVE;
-  }
-
   let newCoords = getNeighborCoords(G.hexBoard[G.shipStatus.location].cubeCoords, dir);
   if (newCoords === null) {
     return INVALID_MOVE;
@@ -394,6 +390,10 @@ export function collectResources({ G }: { G: LightsInTheVoidState }) {
 //   events.endStage();
 // }
 
+export function PlayersLose(G: LightsInTheVoidState) {
+  return G.shipStatus.armor <= 0 || G.shipStatus.energy <= 0;
+}
+
 function initializeTokenEffects(config: TokenEffectsConfig) {
   tokenEffectsConfig = config;
 }
@@ -452,14 +452,11 @@ export const makeLightsInTheVoidGame = (
     collectResources,
   },
 
-  // endIf: ({ G, ctx }) => {
-  //   if (IsVictory(G.cells)) {
-  //     return { winner: ctx.currentPlayer };
-  //   }
-  //   if (IsDraw(G.cells)) {
-  //     return { draw: true };
-  //   }
-  // },
+  endIf: ({ G, ctx }) => {
+    if (PlayersLose(G)) {
+      return { players_lose: true };
+    }
+  },
 
   // ai: {
   //   enumerate: (G) => {
