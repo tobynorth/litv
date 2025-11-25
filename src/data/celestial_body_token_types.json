@@ -2,11 +2,11 @@
   "yellow-normal": {
     "energyChange": 1,
     "armorChange": -1,
-    "researchTokensChange": 0
+    "numResearchTokens": 0
   },
   "planet": {
     "energyChange": 0,
     "armorChange": 1,
-    "researchTokensChange": 1
+    "numResearchTokens": 1
   }
 }

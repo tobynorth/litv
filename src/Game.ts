@@ -127,18 +127,19 @@ export type ItineraryCard = {
 export type TokenEffects = {
   energyChange: number;
   armorChange: number;
-  researchTokensChange: number;
+  numResearchTokens: number;
 };
 
 export type TokenEffectsConfig = Record<string, TokenEffects>;
 
 type HexCell = {
   cubeCoords: CubeCoords;
-  token: CelestialBodyToken | null;
+  celestialBodyToken: CelestialBodyToken | null;
+  numResearchTokens: number;
 };
 
 type DoubleTokenHexCell = HexCell & {
-  token2: CelestialBodyToken | null;
+  celestialBodyToken2: CelestialBodyToken | null;
 }
 
 type CubeCoords = { q: number; r: number; s: number };
@@ -170,8 +171,9 @@ function generateHexes() {
   // Add the HOME hex
   let homeHexCell: DoubleTokenHexCell = {
     cubeCoords: { q: 0, r: 0, s: 0 },
-    token: null,
-    token2: null,
+    numResearchTokens: 0,
+    celestialBodyToken: null,
+    celestialBodyToken2: null,
   }
   let hexes: Record<string, HexCell> = {
     "HOME": homeHexCell
@@ -184,27 +186,33 @@ function generateHexes() {
   let sectorCurrentHexes: Record<string, HexCell> = {
     "A": { 
       cubeCoords: { q: -1, r: 0, s: 1 },
-      token: null,
+      celestialBodyToken: null,
+      numResearchTokens: 0,
     },
     "B": { 
       cubeCoords: { q: 0, r: -1, s: 1 },
-      token: null,
+      celestialBodyToken: null,
+      numResearchTokens: 0,
     },
     "C": { 
       cubeCoords: { q: 1, r: -1, s: 0 },
-      token: null,
+      celestialBodyToken: null,
+      numResearchTokens: 0,
     },
     "D": { 
       cubeCoords: { q: 1, r: 0, s: -1 },
-      token: null,
+      celestialBodyToken: null,
+      numResearchTokens: 0,
     },
     "E": { 
       cubeCoords: { q: 0, r: 1, s: -1 },
-      token: null,
+      celestialBodyToken: null,
+      numResearchTokens: 0,
     },
     "F": { 
       cubeCoords: { q: -1, r: 1, s: 0 },
-      token: null,
+      celestialBodyToken: null,
+      numResearchTokens: 0,
     },
   };
 
@@ -339,47 +347,52 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
     token = { type: selectedIcon.type };
   }
 
-  // place token on board
-  G.hexBoard[G.shipStatus.location].token = token;
+  // place celestial body token + any research tokens on board
+  let currHex = G.hexBoard[G.shipStatus.location];
+  currHex.celestialBodyToken = token;
+  currHex.numResearchTokens = tokenEffectsConfig[lookupKey(token)].numResearchTokens;
 }
 
 export function collectResources({ G }: { G: LightsInTheVoidState }, useToken2: boolean = false) {
   const currentHex = G.hexBoard[G.shipStatus.location];
-  const token = useToken2 && "token2" in currentHex ? (currentHex as DoubleTokenHexCell).token2 : currentHex.token;
+  const token = useToken2 && "celestialBodyToken2" in currentHex ? (currentHex as DoubleTokenHexCell).celestialBodyToken2 : currentHex.celestialBodyToken;
 
   // Return invalid if there's no token on the current hex
   if (!token) {
     return INVALID_MOVE;
   }
-
-  // Build lookup key based on token type and size
-  let lookupKey: string;
-  if ("size" in token) {
-    lookupKey = `${token.type}-${token.size}`;
-  } else if (token.type === CelestialBodyType.Wormhole) {
-    // Skip wormholes for now - they have special behavior
-    return INVALID_MOVE;
-  } else {
-    lookupKey = token.type;
-  }
+  let key = lookupKey(token);
 
   // Look up effects in config
-  const effects = tokenEffectsConfig[lookupKey];
+  const effects = tokenEffectsConfig[key];
   if (!effects) {
     // No effects defined for this token type
     return INVALID_MOVE;
   }
 
-  // Apply effects to ship status
-  G.shipStatus.energy = Math.min(
-    G.shipStatus.maxEnergy,
-    G.shipStatus.energy + effects.energyChange
+  // Apply energy & armor effects to ship status
+  let status = G.shipStatus;
+  status.energy = Math.min(
+    status.maxEnergy,
+    status.energy + effects.energyChange
   );
-  G.shipStatus.armor = Math.min(
-    G.shipStatus.maxArmor,
-    G.shipStatus.armor + effects.armorChange
+  status.armor = Math.min(
+    status.maxArmor,
+    status.armor + effects.armorChange
   );
-  G.shipStatus.numResearchTokens += effects.researchTokensChange;
+
+  // collect any research tokens on the hex
+  status.numResearchTokens += G.hexBoard[status.location].numResearchTokens;
+  G.hexBoard[status.location].numResearchTokens = 0;
+}
+
+function lookupKey(token: CelestialBodyToken): string {
+  // Build lookup key based on token type and size
+  if ("size" in token) {
+    return `${token.type}-${token.size}`;
+  } else {
+    return token.type;
+  }
 }
 
 // Helper function to award bonus points based on itinerary card matches
@@ -483,8 +496,8 @@ export const makeLightsInTheVoidGame = (
       token2 = { type: icon2.type };
     }
 
-    homeHex.token = token1;
-    homeHex.token2 = token2;
+    homeHex.celestialBodyToken = token1;
+    homeHex.celestialBodyToken2 = token2;
 
     return {
       shipStatus: {
