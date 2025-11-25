@@ -1,10 +1,10 @@
 {
   "cards": [
     {
-      "title": "Test Starting Card!",
-      "subtitle": "Subtitle",
+      "title": "The Sun",
+      "subtitle": "Solar System",
       "imageSrc": "path/to/image.png",
-      "flavorText": "This is a test card that players start the game with.",
+      "flavorText": "This test card represents the Sun and its planets. Players always start the game with it already played.",
       "hexCoordinate": "HOME",
       "zoneNumber": 0,
       "radius": {

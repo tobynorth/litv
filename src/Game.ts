@@ -137,6 +137,10 @@ type HexCell = {
   token: CelestialBodyToken | null;
 };
 
+type DoubleTokenHexCell = HexCell & {
+  token2: CelestialBodyToken | null;
+}
+
 type CubeCoords = { q: number; r: number; s: number };
 
 // Module-level variable to store token effects configuration
@@ -164,11 +168,13 @@ let tokenEffectsConfig: TokenEffectsConfig;
 
 function generateHexes() {
   // Add the HOME hex
+  let homeHexCell: DoubleTokenHexCell = {
+    cubeCoords: { q: 0, r: 0, s: 0 },
+    token: null,
+    token2: null,
+  }
   let hexes: Record<string, HexCell> = {
-    "HOME": {
-      cubeCoords: { q: 0, r: 0, s: 0 },
-      token: null,
-    }
+    "HOME": homeHexCell
   };
 
   let reverseHexes: Record<string, string> = {
@@ -306,31 +312,8 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   let points = cardToPlay.zoneNumber * 2 - 1;
   G.playerPoints[playerID] += points;
 
-  // Calculate bonus points from itinerary card-itinerary icon matches
-  cardToPlay.itineraryIcons.forEach(itineraryIcon => {
-    Object.entries(G.playerItineraryCards).forEach(playerItineraryCard => {
-      if (itineraryIcon.name === playerItineraryCard[1].name) {
-        G.playerPoints[playerItineraryCard[0]] += playerItineraryCard[1].pointsPerItineraryIcon;
-      }
-    });
-  });
-
-  // Calculate bonus points from itinerary card-celestial body icon matches
-  cardToPlay.celestialBodyIcons.forEach(celestialBodyIcon => {
-    Object.entries(G.playerItineraryCards).forEach(playerItineraryCard => {
-      playerItineraryCard[1].matchingCelestialBodyIcons.forEach(matchingIcon => {
-        if (
-          celestialBodyIcon.type === matchingIcon.type
-          && (
-            !("size" in celestialBodyIcon && "size" in matchingIcon)
-            || celestialBodyIcon.size === matchingIcon.size
-          )
-        ) {
-          G.playerPoints[playerItineraryCard[0]] += (playerItineraryCard[1].pointsPerMatchingCelestialBodyIcon * celestialBodyIcon.count);
-        }
-      });
-    });
-  });
+  // Calculate bonus points from itinerary matches
+  awardItineraryBonusPoints(cardToPlay, G.playerItineraryCards, G.playerPoints);
 
   // Randomly choose icon to play as token based on card's celestialBodyIcons
   // TODO: allow player to choose which icon to play instead of random
@@ -399,6 +382,39 @@ export function collectResources({ G }: { G: LightsInTheVoidState }) {
   G.shipStatus.numResearchTokens += effects.researchTokensChange;
 }
 
+// Helper function to award bonus points based on itinerary card matches
+function awardItineraryBonusPoints(
+  card: StarSystemCard,
+  playerItineraryCards: Record<string, ItineraryCard>,
+  playerPoints: Record<string, number>
+) {
+  // Award bonus points for itinerary icon matches
+  card.itineraryIcons.forEach(itineraryIcon => {
+    Object.entries(playerItineraryCards).forEach(([playerID, itineraryCard]) => {
+      if (itineraryIcon.name === itineraryCard.name) {
+        playerPoints[playerID] += itineraryCard.pointsPerItineraryIcon;
+      }
+    });
+  });
+
+  // Award bonus points for celestial body icon matches
+  card.celestialBodyIcons.forEach(celestialBodyIcon => {
+    Object.entries(playerItineraryCards).forEach(([playerID, itineraryCard]) => {
+      itineraryCard.matchingCelestialBodyIcons.forEach(matchingIcon => {
+        if (
+          celestialBodyIcon.type === matchingIcon.type
+          && (
+            !("size" in celestialBodyIcon && "size" in matchingIcon)
+            || celestialBodyIcon.size === matchingIcon.size
+          )
+        ) {
+          playerPoints[playerID] += (itineraryCard.pointsPerMatchingCelestialBodyIcon * celestialBodyIcon.count);
+        }
+      });
+    });
+  });
+}
+
 // TODO: implement card selection for discard. something like below, maybe...
 // export function discardDetectedStarSystem({ G, events }: { G: LightsInTheVoidState, events: any }, cardToDiscardIndex: number) {
 //   if (cardToDiscardIndex < 0 || cardToDiscardIndex >= G.detectedStarSystems.length) {
@@ -428,6 +444,48 @@ export const makeLightsInTheVoidGame = (
   return {
     setup: ({ ctx }) => {
     const { hexes, reverseHexes } = generateHexes();
+
+    // Extract Zone 0 card for initial play
+    const zone0Card = cards[0].pop()!;
+
+    // Initialize player itinerary cards
+    const playerItineraryCards = Object.fromEntries(
+      Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), itineraryCards[i]])
+    );
+
+    // Initialize player points to 0
+    const playerPoints: Record<string, number> = Object.fromEntries(
+      Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), 0])
+    );
+
+    // Award bonus points for Zone 0 card matches (no base points since no one played it)
+    awardItineraryBonusPoints(zone0Card, playerItineraryCards, playerPoints);
+
+    // Place two tokens on HOME hex based on Zone 0 card icons
+    const homeHex = hexes["HOME"] as DoubleTokenHexCell;
+    // Cast to CelestialBody since Zone 0 card never has 'any' type icons
+    const icon1 = zone0Card.celestialBodyIcons[0] as CelestialBody;
+    const icon2 = zone0Card.celestialBodyIcons[1] as CelestialBody;
+
+    // Create token from first icon
+    let token1: CelestialBodyToken;
+    if ("size" in icon1) {
+      token1 = { type: icon1.type, size: icon1.size };
+    } else {
+      token1 = { type: icon1.type };
+    }
+
+    // Create token from second icon
+    let token2: CelestialBodyToken;
+    if ("size" in icon2) {
+      token2 = { type: icon2.type, size: icon2.size };
+    } else {
+      token2 = { type: icon2.type };
+    }
+
+    homeHex.token = token1;
+    homeHex.token2 = token2;
+
     return {
       shipStatus: {
         location: "HOME",
@@ -438,14 +496,10 @@ export const makeLightsInTheVoidGame = (
         numResearchTokens: 0,
         speed: 1,
       },
-      playerItineraryCards: Object.fromEntries(
-        Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), itineraryCards[i]])
-      ),
+      playerItineraryCards: playerItineraryCards,
       detectedStarSystems: Array.from({ length: 5 }, () => cards[1].pop()!),
-      playerPoints: Object.fromEntries(
-        Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), 0])
-      ),
-      playedCards: [cards[0].pop()!],
+      playerPoints: playerPoints,
+      playedCards: [zone0Card],
       zoneDecks: cards,
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
