@@ -3,15 +3,23 @@ import { StarSystemCard, ItineraryCard, TokenEffectsConfig, makeLightsInTheVoidG
 import { CardLoader } from './data/CardLoader';
 
 const NUM_PLAYERS = 2;
+const NUM_PHASES = 1;
+const WIN_THRESHOLD = 25 * NUM_PLAYERS * NUM_PHASES;
 
 class LightsInTheVoidClient {
   client: ReturnType<typeof Client>;
   constructor(
     starSystemCards: Record<string, StarSystemCard[]>,
     itineraryCards: ItineraryCard[],
-    tokenEffectsConfig: TokenEffectsConfig
+    tokenEffectsConfig: TokenEffectsConfig,
   ) {
-    const litv = makeLightsInTheVoidGame(starSystemCards, itineraryCards, tokenEffectsConfig);
+    const litv = makeLightsInTheVoidGame(
+      starSystemCards,
+      itineraryCards,
+      tokenEffectsConfig,
+      NUM_PHASES,
+      WIN_THRESHOLD,
+    );
     this.client = Client({ game: litv, numPlayers: NUM_PLAYERS });
     this.client.start();
   }

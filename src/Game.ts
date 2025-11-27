@@ -3,6 +3,8 @@
 import { Game } from 'boardgame.io';
 import { INVALID_MOVE } from 'boardgame.io/core';
 
+const ROUNDS_PER_PHASE = 1;
+
 enum Direction {
   W = "W",
   NW = "NW",
@@ -52,6 +54,7 @@ interface LightsInTheVoidState {
   zoneDecks: Record<string, StarSystemCard[]>;
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
+  phasePointTotals: number[];
 }
 
 type ShipStatus = {
@@ -146,6 +149,8 @@ type CubeCoords = { q: number; r: number; s: number };
 
 // Module-level variable to store token effects configuration
 let tokenEffectsConfig: TokenEffectsConfig;
+let numPhases: number;
+let winThreshold: number;
 
 // Return true if `cells` is in a winning configuration.
 // function IsVictory(cells: (string | null)[]) {
@@ -428,6 +433,28 @@ function awardItineraryBonusPoints(
   });
 }
 
+function completeCurrentPhase(G: LightsInTheVoidState) {
+  // 1. Sum all player points
+  const phaseTotal = Object.values(G.playerPoints).reduce((sum, points) => sum + points, 0);
+  G.phasePointTotals.push(phaseTotal);
+
+  // 2. Reset individual player scores
+  Object.keys(G.playerPoints).forEach(playerID => {
+    G.playerPoints[playerID] = 0;
+  });
+
+  // 3. Replenish research tokens on hexes
+  Object.values(G.hexBoard).forEach(hex => {
+    if (hex.celestialBodyToken) {
+      const key = lookupKey(hex.celestialBodyToken);
+      const effects = tokenEffectsConfig[key];
+      if (effects && effects.numResearchTokens > 0) {
+        hex.numResearchTokens = effects.numResearchTokens;
+      }
+    }
+  });
+}
+
 // TODO: implement card selection for discard. something like below, maybe...
 // export function discardDetectedStarSystem({ G, events }: { G: LightsInTheVoidState, events: any }, cardToDiscardIndex: number) {
 //   if (cardToDiscardIndex < 0 || cardToDiscardIndex >= G.detectedStarSystems.length) {
@@ -438,7 +465,7 @@ function awardItineraryBonusPoints(
 //   events.endStage();
 // }
 
-export function PlayersLose(G: LightsInTheVoidState) {
+export function ShipDestroyed(G: LightsInTheVoidState) {
   return G.shipStatus.armor <= 0 || G.shipStatus.energy <= 0;
 }
 
@@ -447,11 +474,11 @@ function initializeTokenEffects(config: TokenEffectsConfig) {
 }
 
 export const makeLightsInTheVoidGame = (
-  cards: Record<string, StarSystemCard[]>,
-  itineraryCards: ItineraryCard[],
-  tokenEffectsConfigParam: TokenEffectsConfig
+cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[], tokenEffectsConfigParam: TokenEffectsConfig, NUM_PHASES: number, WIN_THRESHOLD: number,
 ): Game<LightsInTheVoidState> => {
   // Initialize module-level config
+  numPhases = NUM_PHASES;
+  winThreshold = WIN_THRESHOLD;
   initializeTokenEffects(tokenEffectsConfigParam);
 
   return {
@@ -516,12 +543,27 @@ export const makeLightsInTheVoidGame = (
       zoneDecks: cards,
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
+      phasePointTotals: [],
     };
   },
 
   turn: {
     minMoves: 1,
-    maxMoves: 1,
+    maxMoves: 3,
+    onEnd: ({ G, ctx }) => {
+      // Check if phase is complete (all players have taken 5 turns each)
+      // A round is complete when turn number is divisible by numPlayers
+      // A phase is complete when we've completed 5 rounds (ROUNDS_PER_PHASE)
+      const currRoundCompleted = ctx.turn % ctx.numPlayers === 0;
+      if (currRoundCompleted) {
+        // award passive research token(s)
+        G.shipStatus.numResearchTokens += Math.floor((ctx.numPlayers + 1) / 2);
+      }
+      const roundsCompleted = Math.floor(ctx.turn / ctx.numPlayers);
+      if (roundsCompleted > 0 && roundsCompleted % ROUNDS_PER_PHASE === 0) {
+        completeCurrentPhase(G);
+      }
+    },
     // stages: {
     //   discardDetectedStarSystem: {
     //     moves: {
@@ -539,7 +581,23 @@ export const makeLightsInTheVoidGame = (
   },
 
   endIf: ({ G, ctx }) => {
-    if (PlayersLose(G)) {
+    // Calculate total turns needed (rounds * players)
+    const maxTurns = ROUNDS_PER_PHASE * numPhases * ctx.numPlayers;
+
+    // Check if we've completed all phases
+    if (ctx.turn > maxTurns) {
+      // Calculate cumulative points
+      const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
+
+      if (cumulativePoints >= winThreshold) {
+        return { players_win: true };
+      } else {
+        return { players_lose: true };
+      }
+    }
+
+    // Check for early loss condition (ship destroyed)
+    if (ShipDestroyed(G)) {
       return { players_lose: true };
     }
   },
