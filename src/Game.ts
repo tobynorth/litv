@@ -1,6 +1,6 @@
 "use strict";
 
-import { Game } from 'boardgame.io';
+import { AiEnumerate, Game } from 'boardgame.io';
 import { INVALID_MOVE } from 'boardgame.io/core';
 
 const ROUNDS_PER_PHASE = 1;
@@ -612,9 +612,9 @@ export const makeLightsInTheVoidGame = (
         const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
 
         if (cumulativePoints >= winThreshold) {
-          events.endGame({ playersWin: true });
+          events.endGame({ playersWin: true, score: cumulativePoints });
         } else {
-          events.endGame({ playersLose: true });
+          events.endGame({ playersLose: true, score: cumulativePoints });
         }
       }
     },
@@ -638,20 +638,68 @@ export const makeLightsInTheVoidGame = (
   endIf: ({ G, ctx }) => {
     // Check for early loss condition (ship destroyed)
     if (ShipDestroyed(G)) {
-      return { playersLose: true };
+      const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
+      return { playersLose: true, score: cumulativePoints };
     }
   },
 
-  // ai: {
-  //   enumerate: (G) => {
-  //     let moves = [];
-  //     for (let i = 0; i < 9; i++) {
-  //       if (G.cells[i] === null) {
-  //         moves.push({ move: 'clickCell', args: [i] });
-  //       }
-  //     }
-  //     return moves;
-  //   },
-  // },
+  ai: {
+    enumerate: (G) => {
+      let moves: AiEnumerate = [];
+
+      // 1. Enumerate moveShip moves
+      const currentLocation = G.hexBoard[G.shipStatus.location];
+
+      if (G.shipStatus.energy > 1) {
+        const currentCoords = currentLocation.cubeCoords;
+        Object.values(Direction).forEach(dir => {
+          const neighborCoords = getNeighborCoords(currentCoords, dir);
+          if (neighborCoords !== null) {
+            moves.push({ move: 'moveShip', args: [dir] });
+          }
+        });
+      }
+
+      // 2. Enumerate playCard moves
+      G.detectedStarSystems.forEach((card, index) => {
+        if (G.shipStatus.location === card.hexCoordinate) {
+          moves.push({ move: 'playCard', args: [index] });
+        }
+      });
+
+      // 3. Enumerate drawCard moves
+      Object.keys(G.zoneDecks).forEach(zoneNumStr => {
+        const zoneNum = parseInt(zoneNumStr);
+        if (G.zoneDecks[zoneNum].length > 0) {
+          moves.push({ move: 'drawCard', args: [zoneNum] });
+        }
+      });
+
+      // 4. Enumerate collectResources moves
+      if (currentLocation.celestialBodyToken) {
+        const key = lookupKey(currentLocation.celestialBodyToken);
+        if (config.tokenEffects && config.tokenEffects[key]) {
+          moves.push({ move: 'collectResources', args: [false] });
+        }
+      }
+
+      if ("celestialBodyToken2" in currentLocation) {
+        const doubleHex = currentLocation as DoubleTokenHexCell;
+        const key = lookupKey(doubleHex.celestialBodyToken2!);
+        if (config.tokenEffects && config.tokenEffects[key]) {
+          moves.push({ move: 'collectResources', args: [true] });
+        }
+      }
+
+      // 5. Enumerate doResearch moves
+      Object.keys(config.researchTopics!).forEach(topicName => {
+        const topic = config.researchTopics![topicName];
+        if (G.shipStatus.numResearchTokens >= topic.cost) {
+          moves.push({ move: 'doResearch', args: [topicName] });
+        }
+      });
+      return moves;
+    },
+  },
   };
 };
