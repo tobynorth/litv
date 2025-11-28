@@ -147,11 +147,21 @@ type DoubleTokenHexCell = HexCell & {
 
 type CubeCoords = { q: number; r: number; s: number };
 
-// Module-level variable to store token effects configuration
-let tokenEffectsConfig: TokenEffectsConfig;
-let numPhases: number;
-let winThreshold: number;
-let maxTurns: number;
+// Define type & module-level variable to store game configuration
+// TODO: replace with built-in boardgame.io config that's only used with client-server games
+type GameConfig = {
+  tokenEffects: TokenEffectsConfig | null,
+  numPhases: number | null,
+  winThreshold: number | null,
+  maxTurns: number | null,
+}
+
+const config: GameConfig = {
+  tokenEffects: null,
+  numPhases: null,
+  winThreshold: null,
+  maxTurns: null,
+}
 
 // Return true if `cells` is in a winning configuration.
 // function IsVictory(cells: (string | null)[]) {
@@ -356,7 +366,7 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   // place celestial body token + any research tokens on board
   let currHex = G.hexBoard[G.shipStatus.location];
   currHex.celestialBodyToken = token;
-  currHex.numResearchTokens = tokenEffectsConfig[lookupKey(token)].numResearchTokens;
+  currHex.numResearchTokens = config.tokenEffects![lookupKey(token)].numResearchTokens;
 }
 
 export function collectResources({ G }: { G: LightsInTheVoidState }, useToken2: boolean = false) {
@@ -370,7 +380,7 @@ export function collectResources({ G }: { G: LightsInTheVoidState }, useToken2: 
   let key = lookupKey(token);
 
   // Look up effects in config
-  const effects = tokenEffectsConfig[key];
+  const effects = config.tokenEffects![key];
   if (!effects) {
     // No effects defined for this token type
     return INVALID_MOVE;
@@ -448,7 +458,7 @@ function completeCurrentPhase(G: LightsInTheVoidState) {
   Object.values(G.hexBoard).forEach(hex => {
     if (hex.celestialBodyToken) {
       const key = lookupKey(hex.celestialBodyToken);
-      const effects = tokenEffectsConfig[key];
+      const effects = config.tokenEffects![key];
       if (effects && effects.numResearchTokens > 0) {
         hex.numResearchTokens = effects.numResearchTokens;
       }
@@ -470,23 +480,21 @@ export function ShipDestroyed(G: LightsInTheVoidState) {
   return G.shipStatus.armor <= 0 || G.shipStatus.energy <= 0;
 }
 
-function initializeTokenEffects(config: TokenEffectsConfig) {
-  tokenEffectsConfig = config;
-}
-
 export const makeLightsInTheVoidGame = (
   cards: Record<string, StarSystemCard[]>,
   itineraryCards: ItineraryCard[],
-  tokenEffectsConfigParam: TokenEffectsConfig,
+  tokenEffects: TokenEffectsConfig,
   numPlayers: number,
   numPhases: number,
   winThreshold: number,
 ): Game<LightsInTheVoidState> => {
   // Initialize module-level config
-  numPhases = numPhases;
-  winThreshold = winThreshold;
-  maxTurns = ROUNDS_PER_PHASE * numPhases * numPlayers;
-  initializeTokenEffects(tokenEffectsConfigParam);
+  Object.assign(config, {
+    numPhases: numPhases,
+    winThreshold: winThreshold,
+    maxTurns: ROUNDS_PER_PHASE * numPhases * numPlayers,
+    tokenEffects: tokenEffects,
+  });
 
   return {
     setup: ({ ctx }) => {
@@ -572,7 +580,7 @@ export const makeLightsInTheVoidGame = (
       }
 
       // Check if game is complete
-      if (ctx.turn >= maxTurns) {
+      if (ctx.turn >= config.maxTurns!) {
         // Calculate cumulative points
         const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
 
