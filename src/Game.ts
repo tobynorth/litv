@@ -475,12 +475,17 @@ function initializeTokenEffects(config: TokenEffectsConfig) {
 }
 
 export const makeLightsInTheVoidGame = (
-cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[], tokenEffectsConfigParam: TokenEffectsConfig, num_players: number, NUM_PHASES: number, WIN_THRESHOLD: number,
+  cards: Record<string, StarSystemCard[]>,
+  itineraryCards: ItineraryCard[],
+  tokenEffectsConfigParam: TokenEffectsConfig,
+  numPlayers: number,
+  numPhases: number,
+  winThreshold: number,
 ): Game<LightsInTheVoidState> => {
   // Initialize module-level config
-  numPhases = NUM_PHASES;
-  winThreshold = WIN_THRESHOLD;
-  maxTurns = ROUNDS_PER_PHASE * numPhases * num_players;
+  numPhases = numPhases;
+  winThreshold = winThreshold;
+  maxTurns = ROUNDS_PER_PHASE * numPhases * numPlayers;
   initializeTokenEffects(tokenEffectsConfigParam);
 
   return {
@@ -572,9 +577,9 @@ cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[], tokenE
         const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
 
         if (cumulativePoints >= winThreshold) {
-          events.endGame({ players_win: true });
+          events.endGame({ playersWin: true });
         } else {
-          events.endGame({ players_lose: true });
+          events.endGame({ playersLose: true });
         }
       }
     },
@@ -597,7 +602,7 @@ cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[], tokenE
   endIf: ({ G, ctx }) => {
     // Check for early loss condition (ship destroyed)
     if (ShipDestroyed(G)) {
-      return { players_lose: true };
+      return { playersLose: true };
     }
   },
 
