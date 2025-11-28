@@ -331,17 +331,17 @@ export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number)
   G.detectedStarSystems.push(drawnCard);
 }
 
-export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: string }, cardIndex: number) {
+export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: string }, cardTitle: string) {
+  let cardToPlayIndex = G.detectedStarSystems.findIndex(c => c.title === cardTitle);
   if (
-      cardIndex < 0
-      || cardIndex >= G.detectedStarSystems.length
-      || G.shipStatus.location !== G.detectedStarSystems[cardIndex].hexCoordinate
+      cardToPlayIndex === -1
+      || G.shipStatus.location !== G.detectedStarSystems[cardToPlayIndex].hexCoordinate
     ) {
     return INVALID_MOVE;
   }
   
   // Move card to played cards
-  let cardToPlay = G.detectedStarSystems.splice(cardIndex, 1)[0];
+  let cardToPlay = G.detectedStarSystems.splice(cardToPlayIndex, 1)[0];
   G.playedCards.push(cardToPlay);
 
   // Calculate base points from playing the card
@@ -381,18 +381,19 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   currHex.numResearchTokens = config.tokenEffects![lookupKey(token)].numResearchTokens;
 }
 
-export function collectResources({ G }: { G: LightsInTheVoidState }, useToken2: boolean = false) {
+export function collectResources({ G }: { G: LightsInTheVoidState }, tokenToCollectFromKey: string) {
   const currentHex = G.hexBoard[G.shipStatus.location];
-  const token = useToken2 && "celestialBodyToken2" in currentHex ? (currentHex as DoubleTokenHexCell).celestialBodyToken2 : currentHex.celestialBodyToken;
+  let key = lookupKey(currentHex.celestialBodyToken!);
+  let key2 = "celestialBodyToken2" in currentHex ? lookupKey((currentHex as DoubleTokenHexCell).celestialBodyToken2!) : null;
 
   // Return invalid if there's no token on the current hex
-  if (!token) {
+  if (key !== tokenToCollectFromKey && key2 !== tokenToCollectFromKey) {
     return INVALID_MOVE;
   }
-  let key = lookupKey(token);
+ 
 
   // Look up effects in config
-  const effects = config.tokenEffects![key];
+  const effects = config.tokenEffects![tokenToCollectFromKey];
   if (!effects) {
     // No effects defined for this token type
     return INVALID_MOVE;
@@ -661,9 +662,9 @@ export const makeLightsInTheVoidGame = (
       }
 
       // 2. Enumerate playCard moves
-      G.detectedStarSystems.forEach((card, index) => {
+      G.detectedStarSystems.forEach((card) => {
         if (G.shipStatus.location === card.hexCoordinate) {
-          moves.push({ move: 'playCard', args: [index] });
+          moves.push({ move: 'playCard', args: [card.title] });
         }
       });
 
@@ -679,7 +680,7 @@ export const makeLightsInTheVoidGame = (
       if (currentLocation.celestialBodyToken) {
         const key = lookupKey(currentLocation.celestialBodyToken);
         if (config.tokenEffects && config.tokenEffects[key]) {
-          moves.push({ move: 'collectResources', args: [false] });
+          moves.push({ move: 'collectResources', args: [key] });
         }
       }
 
@@ -687,7 +688,7 @@ export const makeLightsInTheVoidGame = (
         const doubleHex = currentLocation as DoubleTokenHexCell;
         const key = lookupKey(doubleHex.celestialBodyToken2!);
         if (config.tokenEffects && config.tokenEffects[key]) {
-          moves.push({ move: 'collectResources', args: [true] });
+          moves.push({ move: 'collectResources', args: [key] });
         }
       }
 
