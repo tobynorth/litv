@@ -414,6 +414,18 @@ export function collectResources({ G }: { G: LightsInTheVoidState }, useToken2: 
   G.hexBoard[status.location].numResearchTokens = 0;
 }
 
+export function doResearch({ G }: { G: LightsInTheVoidState }, researchTopicName: string) {
+  let researchTopic = config.researchTopics?.[researchTopicName];
+  let status = G.shipStatus;
+  if (!researchTopic || status.numResearchTokens < researchTopic.cost) {
+    return INVALID_MOVE;
+  }
+  status.numResearchTokens -= researchTopic.cost;
+  status.maxEnergy += researchTopic.maxEnergyChange;
+  status.maxArmor += researchTopic.maxArmorChange;
+  status.speed += researchTopic.speedChange;
+}
+
 function lookupKey(token: CelestialBodyToken): string {
   // Build lookup key based on token type and size
   if ("size" in token) {
@@ -620,6 +632,7 @@ export const makeLightsInTheVoidGame = (
     drawCard,
     playCard,
     collectResources,
+    doResearch,
   },
 
   endIf: ({ G, ctx }) => {
