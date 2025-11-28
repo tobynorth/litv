@@ -1,5 +1,5 @@
 import { Client } from 'boardgame.io/client';
-import { StarSystemCard, ItineraryCard, TokenEffectsConfig, ResearchTopic, makeLightsInTheVoidGame } from './Game';
+import { StarSystemCard, ItineraryCard, TokenEffectsConfig, makeLightsInTheVoidGame, ResearchTopicsConfig } from './Game';
 import { CardLoader } from './data/CardLoader';
 
 const NUM_PLAYERS = 2;
@@ -12,7 +12,7 @@ class LightsInTheVoidClient {
     starSystemCards: Record<string, StarSystemCard[]>,
     itineraryCards: ItineraryCard[],
     tokenEffectsConfig: TokenEffectsConfig,
-    researchTopics: ResearchTopic[],
+    researchTopics: ResearchTopicsConfig,
   ) {
     const litv = makeLightsInTheVoidGame(
       starSystemCards,
