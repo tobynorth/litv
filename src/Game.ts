@@ -135,6 +135,15 @@ export type TokenEffects = {
 
 export type TokenEffectsConfig = Record<string, TokenEffects>;
 
+export type ResearchTopic = {
+  name: string;
+  fullName: string;
+  cost: number;
+  maxEnergyChange: number;
+  maxArmorChange: number;
+  speedChange: number;
+}
+
 type HexCell = {
   cubeCoords: CubeCoords;
   celestialBodyToken: CelestialBodyToken | null;
@@ -151,6 +160,7 @@ type CubeCoords = { q: number; r: number; s: number };
 // TODO: replace with built-in boardgame.io config that's only used with client-server games
 type GameConfig = {
   tokenEffects: TokenEffectsConfig | null,
+  researchTopics: ResearchTopic[] | null,
   numPhases: number | null,
   winThreshold: number | null,
   maxTurns: number | null,
@@ -158,6 +168,7 @@ type GameConfig = {
 
 const config: GameConfig = {
   tokenEffects: null,
+  researchTopics: null,
   numPhases: null,
   winThreshold: null,
   maxTurns: null,
@@ -484,6 +495,7 @@ export const makeLightsInTheVoidGame = (
   cards: Record<string, StarSystemCard[]>,
   itineraryCards: ItineraryCard[],
   tokenEffects: TokenEffectsConfig,
+  researchTopics: ResearchTopic[],
   numPlayers: number,
   numPhases: number,
   winThreshold: number,
@@ -494,6 +506,7 @@ export const makeLightsInTheVoidGame = (
     winThreshold: winThreshold,
     maxTurns: ROUNDS_PER_PHASE * numPhases * numPlayers,
     tokenEffects: tokenEffects,
+    researchTopics: researchTopics,
   });
 
   return {

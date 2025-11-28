@@ -1,5 +1,5 @@
 import { Client } from 'boardgame.io/client';
-import { StarSystemCard, ItineraryCard, TokenEffectsConfig, makeLightsInTheVoidGame } from './Game';
+import { StarSystemCard, ItineraryCard, TokenEffectsConfig, ResearchTopic, makeLightsInTheVoidGame } from './Game';
 import { CardLoader } from './data/CardLoader';
 
 const NUM_PLAYERS = 2;
@@ -12,11 +12,13 @@ class LightsInTheVoidClient {
     starSystemCards: Record<string, StarSystemCard[]>,
     itineraryCards: ItineraryCard[],
     tokenEffectsConfig: TokenEffectsConfig,
+    researchTopics: ResearchTopic[],
   ) {
     const litv = makeLightsInTheVoidGame(
       starSystemCards,
       itineraryCards,
       tokenEffectsConfig,
+      researchTopics,
       NUM_PLAYERS,
       NUM_PHASES,
       WIN_THRESHOLD,
@@ -29,7 +31,8 @@ class LightsInTheVoidClient {
 Promise.all([
   CardLoader.loadStarSystemCards(),
   CardLoader.loadItineraryCards(NUM_PLAYERS),
-  CardLoader.loadTokenEffects()
-]).then(([starSystemCards, itineraryCards, tokenEffectsConfig]) => {
-  const app = new LightsInTheVoidClient(starSystemCards, itineraryCards, tokenEffectsConfig);
+  CardLoader.loadTokenEffects(),
+  CardLoader.loadResearchTopics(),
+]).then(([starSystemCards, itineraryCards, tokenEffectsConfig, researchTopics]) => {
+  const app = new LightsInTheVoidClient(starSystemCards, itineraryCards, tokenEffectsConfig, researchTopics);
 });
