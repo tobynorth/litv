@@ -136,13 +136,14 @@ export type TokenEffects = {
 export type TokenEffectsConfig = Record<string, TokenEffects>;
 
 export type ResearchTopic = {
-  name: string;
   fullName: string;
   cost: number;
   maxEnergyChange: number;
   maxArmorChange: number;
   speedChange: number;
 }
+
+export type ResearchTopicsConfig = Record<string, ResearchTopic>;
 
 type HexCell = {
   cubeCoords: CubeCoords;
@@ -160,7 +161,7 @@ type CubeCoords = { q: number; r: number; s: number };
 // TODO: replace with built-in boardgame.io config that's only used with client-server games
 type GameConfig = {
   tokenEffects: TokenEffectsConfig | null,
-  researchTopics: ResearchTopic[] | null,
+  researchTopics: ResearchTopicsConfig | null,
   numPhases: number | null,
   winThreshold: number | null,
   maxTurns: number | null,
@@ -495,12 +496,13 @@ export const makeLightsInTheVoidGame = (
   cards: Record<string, StarSystemCard[]>,
   itineraryCards: ItineraryCard[],
   tokenEffects: TokenEffectsConfig,
-  researchTopics: ResearchTopic[],
+  researchTopics: ResearchTopicsConfig,
   numPlayers: number,
   numPhases: number,
   winThreshold: number,
 ): Game<LightsInTheVoidState> => {
   // Initialize module-level config
+  // TODO: make this typesafe
   Object.assign(config, {
     numPhases: numPhases,
     winThreshold: winThreshold,
