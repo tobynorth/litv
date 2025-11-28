@@ -37,7 +37,7 @@ export class CardLoader {
     return tokenEffectsData as TokenEffectsConfig;
   }
 
-  static async loadResearchTopics(): Promise<ResearchTopicConfig> {
+  static async loadResearchTopics(): Promise<ResearchTopicsConfig> {
     return researchTopicData as ResearchTopicsConfig;
   }
 
