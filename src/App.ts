@@ -17,6 +17,7 @@ class LightsInTheVoidClient {
       starSystemCards,
       itineraryCards,
       tokenEffectsConfig,
+      NUM_PLAYERS,
       NUM_PHASES,
       WIN_THRESHOLD,
     );

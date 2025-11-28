@@ -151,6 +151,7 @@ type CubeCoords = { q: number; r: number; s: number };
 let tokenEffectsConfig: TokenEffectsConfig;
 let numPhases: number;
 let winThreshold: number;
+let maxTurns: number;
 
 // Return true if `cells` is in a winning configuration.
 // function IsVictory(cells: (string | null)[]) {
@@ -474,11 +475,12 @@ function initializeTokenEffects(config: TokenEffectsConfig) {
 }
 
 export const makeLightsInTheVoidGame = (
-cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[], tokenEffectsConfigParam: TokenEffectsConfig, NUM_PHASES: number, WIN_THRESHOLD: number,
+cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[], tokenEffectsConfigParam: TokenEffectsConfig, num_players: number, NUM_PHASES: number, WIN_THRESHOLD: number,
 ): Game<LightsInTheVoidState> => {
   // Initialize module-level config
   numPhases = NUM_PHASES;
   winThreshold = WIN_THRESHOLD;
+  maxTurns = ROUNDS_PER_PHASE * numPhases * num_players;
   initializeTokenEffects(tokenEffectsConfigParam);
 
   return {
@@ -550,18 +552,30 @@ cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[], tokenE
   turn: {
     minMoves: 1,
     maxMoves: 3,
-    onEnd: ({ G, ctx }) => {
-      // Check if phase is complete (all players have taken 5 turns each)
-      // A round is complete when turn number is divisible by numPlayers
-      // A phase is complete when we've completed 5 rounds (ROUNDS_PER_PHASE)
+    onEnd: ({ G, ctx, events }) => {
+      // Check if round is complete
       const currRoundCompleted = ctx.turn % ctx.numPlayers === 0;
       if (currRoundCompleted) {
         // award passive research token(s)
         G.shipStatus.numResearchTokens += Math.floor((ctx.numPlayers + 1) / 2);
       }
+
+      // Check if phase is complete
       const roundsCompleted = Math.floor(ctx.turn / ctx.numPlayers);
       if (roundsCompleted > 0 && roundsCompleted % ROUNDS_PER_PHASE === 0) {
         completeCurrentPhase(G);
+      }
+
+      // Check if game is complete
+      if (ctx.turn >= maxTurns) {
+        // Calculate cumulative points
+        const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
+
+        if (cumulativePoints >= winThreshold) {
+          events.endGame({ players_win: true });
+        } else {
+          events.endGame({ players_lose: true });
+        }
       }
     },
     // stages: {
@@ -581,21 +595,6 @@ cards: Record<string, StarSystemCard[]>, itineraryCards: ItineraryCard[], tokenE
   },
 
   endIf: ({ G, ctx }) => {
-    // Calculate total turns needed (rounds * players)
-    const maxTurns = ROUNDS_PER_PHASE * numPhases * ctx.numPlayers;
-
-    // Check if we've completed all phases
-    if (ctx.turn > maxTurns) {
-      // Calculate cumulative points
-      const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
-
-      if (cumulativePoints >= winThreshold) {
-        return { players_win: true };
-      } else {
-        return { players_lose: true };
-      }
-    }
-
     // Check for early loss condition (ship destroyed)
     if (ShipDestroyed(G)) {
       return { players_lose: true };
