@@ -91,33 +91,18 @@ type AllowedAnyIconType = CelestialBodyType.Red |
         CelestialBodyType.White |
         CelestialBodyType.Blue;
 
-type ItineraryIcon = { name: string, imageSrc: string };
-
 export type Card = StarSystemCard | ItineraryCard;
 
 export type StarSystemCard = {
   title: string;
-  subtitle: string;
-  imageSrc: string;
-  flavorText: string;
   hexCoordinate: string;
   zoneNumber: number;
-  radius: {
-    unit: string;
-    value: number;
-  };
-  distance: {
-    unit: string;
-    value: number;
-  };
   celestialBodyIcons: CelestialBodyIcon[];
-  itineraryIcons: ItineraryIcon[];
+  itineraryIcons: string[];
 };
 
 export type ItineraryCard = {
   name: string;
-  fullName: string;
-  flavorText: string;
   pointsPerItineraryIcon: number;
   pointsPerMatchingCelestialBodyIcon: number;
   matchingCelestialBodyIcons: CelestialBody[];
@@ -136,7 +121,6 @@ export type TokenEffects = {
 export type TokenEffectsConfig = Record<string, TokenEffects>;
 
 export type ResearchTopic = {
-  fullName: string;
   cost: number;
   maxEnergyChange: number;
   maxArmorChange: number;
@@ -443,9 +427,9 @@ function awardItineraryBonusPoints(
   playerPoints: Record<string, number>
 ) {
   // Award bonus points for itinerary icon matches
-  card.itineraryIcons.forEach(itineraryIcon => {
+  card.itineraryIcons.forEach(itineraryIconName => {
     Object.entries(playerItineraryCards).forEach(([playerID, itineraryCard]) => {
-      if (itineraryIcon.name === itineraryCard.name) {
+      if (itineraryIconName === itineraryCard.name) {
         playerPoints[playerID] += itineraryCard.pointsPerItineraryIcon;
       }
     });

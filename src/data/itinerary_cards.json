@@ -2,8 +2,6 @@
   "cards": [
     {
       "name": "test",
-      "fullName": "Test Itinerary Card!",
-      "flavorText": "This is a test itinerary card for awarding points per itinerary icon.",
       "pointsPerItineraryIcon": 5,
       "pointsPerMatchingCelestialBodyIcon": 0,
       "matchingCelestialBodyIcons": [],
@@ -14,8 +12,19 @@
     },
     {
       "name": "test2",
-      "fullName": "Test Itinerary Card 2!",
-      "flavorText": "This is a test itinerary card for awarding points per celestial body icon.",
+      "pointsPerItineraryIcon": 0,
+      "pointsPerMatchingCelestialBodyIcon": 1,
+      "matchingCelestialBodyIcons": [
+        {"type": "planet"},
+        {"type": "yellow", "size": "normal"}
+      ],
+      "zone1Percentage": 0.5,
+      "zone2Percentage": 0.3,
+      "zone3Percentage": 0.2,
+      "zone4Percentage": 0.1
+    },
+    {
+      "name": "test3",
       "pointsPerItineraryIcon": 0,
       "pointsPerMatchingCelestialBodyIcon": 1,
       "matchingCelestialBodyIcons": [

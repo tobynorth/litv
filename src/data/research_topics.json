@@ -1,13 +1,11 @@
 {
   "test": {
-    "fullName": "Test Research Topic",
     "cost": 1,
     "maxEnergyChange": 0,
     "maxArmorChange": 1,
     "speedChange": 0
   },
   "test2": {
-    "fullName": "Test Research Topic 2",
     "cost": 2,
     "maxEnergyChange": 1,
     "maxArmorChange": 0,
