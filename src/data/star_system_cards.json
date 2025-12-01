@@ -15,7 +15,7 @@
           "count": 8
         }
       ],
-      "itineraryIcons": ["test"]
+      "itineraryIcons": [{ "name": "test"}]
     },
     {
       "title": "Test Zone 1 Card #1",
@@ -27,7 +27,7 @@
           "count": 8
         }
       ],
-      "itineraryIcons": ["test"]
+      "itineraryIcons": [{ "name": "test"}]
     },
     {
       "title": "Test Zone 1 Card #2",
@@ -44,7 +44,7 @@
           "count": 8
         }
       ],
-      "itineraryIcons": ["test2"]
+      "itineraryIcons": [{ "name": "test2"}]
     },
     {
       "title": "Test Zone 1 Card #3",
@@ -61,7 +61,7 @@
           "count": 8
         }
       ],
-      "itineraryIcons": ["test", "test2"]
+      "itineraryIcons": [{ "name": "test"}, { "name": "test2"}]
     },
     {
       "title": "Test Zone 1 Card #4",
@@ -95,7 +95,7 @@
           "count": 8
         }
       ],
-      "itineraryIcons": ["test"]
+      "itineraryIcons": [{ "name": "test3", "subicon": "test-subicon"}]
     },
     {
       "title": "Test Zone 2 ANY Card",
@@ -108,7 +108,7 @@
           "count": 1
         }
       ],
-      "itineraryIcons": ["test"]
+      "itineraryIcons": [{ "name": "test"}]
     }
   ]
 }

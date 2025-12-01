@@ -27,10 +27,9 @@
       "name": "test3",
       "pointsPerItineraryIcon": 0,
       "pointsPerMatchingCelestialBodyIcon": 1,
-      "matchingCelestialBodyIcons": [
-        {"type": "planet"},
-        {"type": "yellow", "size": "normal"}
-      ],
+      "matchingCelestialBodyIcons": [],
+      "subicons": ["test-subicon1", "test-subicon2", "test-subicon3"],
+      "subIconStrategy": "incremental",
       "zone1Percentage": 0.5,
       "zone2Percentage": 0.3,
       "zone3Percentage": 0.2,

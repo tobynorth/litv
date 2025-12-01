@@ -51,6 +51,7 @@ interface LightsInTheVoidState {
   shipStatus: ShipStatus;
   playerPoints: Record<string, number>;
   playedCards: StarSystemCard[];
+  playerSubIconCollections: Record<string, Record<string, string[]>>;
   zoneDecks: Record<string, StarSystemCard[]>;
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
@@ -98,18 +99,32 @@ export type StarSystemCard = {
   hexCoordinate: string;
   zoneNumber: number;
   celestialBodyIcons: CelestialBodyIcon[];
-  itineraryIcons: string[];
+  itineraryIcons: ItineraryIcon[];
 };
+
+export type ItineraryIcon = {
+  name: string;
+  subicon?: string;
+}
 
 export type ItineraryCard = {
   name: string;
   pointsPerItineraryIcon: number;
   pointsPerMatchingCelestialBodyIcon: number;
   matchingCelestialBodyIcons: CelestialBody[];
+  minimumNumberCelestialBodyIcons?: number;
+  pointsPerMatchingCelestialBodyIcon2?: number;
+  matchingCelestialBodyIcons2?: CelestialBody[];
   zone1Percentage: number;
   zone2Percentage: number;
   zone3Percentage: number;
   zone4Percentage: number;
+
+  // For constellation/continent tracking mechanics
+  subicons?: string[];
+  subIconStrategy?: 'incremental' | 'set-completion';
+  pointsPerSubIconSet?: number;
+  setSize?: number;
 };
 
 export type TokenEffects = {
@@ -333,7 +348,7 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   G.playerPoints[playerID] += points;
 
   // Calculate bonus points from itinerary matches
-  awardItineraryBonusPoints(cardToPlay, G.playerItineraryCards, G.playerPoints);
+  awardItineraryBonusPoints(cardToPlay, G.playerItineraryCards, G.playerPoints, G.playerSubIconCollections);
 
   // Randomly choose icon to play as token based on card's celestialBodyIcons
   // TODO: allow player to choose which icon to play instead of random
@@ -424,20 +439,62 @@ function lookupKey(token: CelestialBodyToken): string {
 function awardItineraryBonusPoints(
   card: StarSystemCard,
   playerItineraryCards: Record<string, ItineraryCard>,
-  playerPoints: Record<string, number>
+  playerPoints: Record<string, number>,
+  playerSubIconCollections: Record<string, Record<string, string[]>>
 ) {
   // Award bonus points for itinerary icon matches
-  card.itineraryIcons.forEach(itineraryIconName => {
+  card.itineraryIcons.forEach(itineraryIcon => {
     Object.entries(playerItineraryCards).forEach(([playerID, itineraryCard]) => {
-      if (itineraryIconName === itineraryCard.name) {
+      if (itineraryIcon.name === itineraryCard.name) {
         playerPoints[playerID] += itineraryCard.pointsPerItineraryIcon;
+
+        if (itineraryIcon.subicon && itineraryCard.subicons && itineraryCard.subIconStrategy) {
+          const subicon = itineraryIcon.subicon;
+
+          if (subicon && itineraryCard.subicons.includes(subicon)) {
+            // Initialize tracking if not exists
+            if (!playerSubIconCollections[playerID]) {
+              playerSubIconCollections[playerID] = {};
+            }
+            if (!playerSubIconCollections[playerID][itineraryCard.name]) {
+              playerSubIconCollections[playerID][itineraryCard.name] = [];
+            }
+
+            let collection = playerSubIconCollections[playerID][itineraryCard.name];
+
+            if (itineraryCard.subIconStrategy === 'incremental') {
+              // Famous Constellations: Award +1 bonus point for each matching subicon already collected
+              const bonus = collection.filter(s => s === subicon).length;
+              playerPoints[playerID] += bonus;
+              // Track this subicon
+              collection.push(subicon);
+            } else if (itineraryCard.subIconStrategy === 'set-completion' && itineraryCard.setSize && itineraryCard.pointsPerSubIconSet) {
+              // Travel the World: Award bonus for each completed set of 6
+              // First add the new subicon
+              collection.push(subicon);
+
+              // Check if we have enough unique subicons and if this card completed a new set
+              const uniqueSubicons = new Set(collection);
+              if (uniqueSubicons.size % itineraryCard.setSize === 0) {
+                playerPoints[playerID] += itineraryCard.pointsPerSubIconSet;
+              }
+            }
+          }
+        }
       }
     });
   });
 
   // Award bonus points for celestial body icon matches
-  card.celestialBodyIcons.forEach(celestialBodyIcon => {
-    Object.entries(playerItineraryCards).forEach(([playerID, itineraryCard]) => {
+  Object.entries(playerItineraryCards).forEach(([playerID, itineraryCard]) => {
+    if (itineraryCard.matchingCelestialBodyIcons.length === 0) {
+      return;
+    }
+
+    // handle 1st set of matching icons
+    let numMatchingIcons = 0;
+    let minimumMatchingIcons = itineraryCard.minimumNumberCelestialBodyIcons ?? 1;
+    card.celestialBodyIcons.forEach(celestialBodyIcon => {
       itineraryCard.matchingCelestialBodyIcons.forEach(matchingIcon => {
         if (
           celestialBodyIcon.type === matchingIcon.type
@@ -446,10 +503,34 @@ function awardItineraryBonusPoints(
             || celestialBodyIcon.size === matchingIcon.size
           )
         ) {
-          playerPoints[playerID] += (itineraryCard.pointsPerMatchingCelestialBodyIcon * celestialBodyIcon.count);
+          numMatchingIcons += celestialBodyIcon.count
         }
       });
     });
+    if (numMatchingIcons >= minimumMatchingIcons) {
+      playerPoints[playerID] += (itineraryCard.pointsPerMatchingCelestialBodyIcon * numMatchingIcons);
+    }
+
+    // handle 2nd set of matching icons (with different # of points)
+    if (itineraryCard.matchingCelestialBodyIcons2 && itineraryCard.pointsPerMatchingCelestialBodyIcon2) {
+      numMatchingIcons = 0;
+      card.celestialBodyIcons.forEach(celestialBodyIcon => {
+        itineraryCard.matchingCelestialBodyIcons2!.forEach(matchingIcon => {
+          if (
+            celestialBodyIcon.type === matchingIcon.type
+            && (
+              !("size" in celestialBodyIcon && "size" in matchingIcon)
+              || celestialBodyIcon.size === matchingIcon.size
+            )
+          ) {
+            numMatchingIcons += celestialBodyIcon.count
+          }
+        });
+      });
+      if (numMatchingIcons >= minimumMatchingIcons) {
+        playerPoints[playerID] += (itineraryCard.pointsPerMatchingCelestialBodyIcon2 * numMatchingIcons);
+      }
+    }
   });
 }
 
@@ -525,8 +606,11 @@ export const makeLightsInTheVoidGame = (
       Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), 0])
     );
 
+    // Initialize player subicon collections
+    const playerSubIconCollections: Record<string, Record<string, string[]>> = {};
+
     // Award bonus points for Zone 0 card matches (no base points since no one played it)
-    awardItineraryBonusPoints(zone0Card, playerItineraryCards, playerPoints);
+    awardItineraryBonusPoints(zone0Card, playerItineraryCards, playerPoints, playerSubIconCollections);
 
     // Place two tokens on HOME hex based on Zone 0 card icons
     const homeHex = hexes["HOME"] as DoubleTokenHexCell;
@@ -571,6 +655,7 @@ export const makeLightsInTheVoidGame = (
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
       phasePointTotals: [],
+      playerSubIconCollections: playerSubIconCollections,
     };
   },
 
