@@ -29,8 +29,8 @@ export class CardLoader {
 
   static async loadItineraryCards(numPlayers: number): Promise<ItineraryCard[]> {
     let cardData = itineraryData.cards as ItineraryCard[];
-    const selectedCards = cardData.slice(0, numPlayers);
-    return this.shuffleArray(selectedCards) as ItineraryCard[];
+    const shuffledCards = this.shuffleArray(cardData);
+    return shuffledCards.slice(0, numPlayers) as ItineraryCard[];
   }
 
   static async loadTokenEffects(): Promise<TokenEffectsConfig> {
