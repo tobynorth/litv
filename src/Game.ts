@@ -288,15 +288,17 @@ function generateHexes() {
 function getNeighborCoords(cubeCoords: CubeCoords, direction: Direction): CubeCoords | null {
   const dirOffset = DIRECTIONS[direction];
 
-  let newQ = cubeCoords.q + dirOffset.q;
-  let newR = cubeCoords.r + dirOffset.r;
-  let newS = cubeCoords.s + dirOffset.s;
+  let newCoords = {"q": cubeCoords.q + dirOffset.q, "r": cubeCoords.r + dirOffset.r, "s": cubeCoords.s + dirOffset.s };
 
   // Check if out of bounds (more than 7 hexes from HOME)
-  const distanceFromHome = Math.max(Math.abs(newQ), Math.abs(newR), Math.abs(newS));
+  const distanceFromHome = getDistance({"q": 0, "r": 0, "s": 0}, newCoords);
   if (distanceFromHome > 7) return null;
 
-  return { q: newQ, r: newR, s: newS };
+  return newCoords;
+}
+
+function getDistance(currCoords: CubeCoords, newCoords: CubeCoords) {
+  return Math.max(Math.abs(currCoords.q - newCoords.q), Math.abs(currCoords.r - newCoords.r), Math.abs(currCoords.s - newCoords.s));
 }
 
 export function moveShip({ G }: { G: LightsInTheVoidState }, dir: Direction) {
@@ -725,7 +727,19 @@ export const makeLightsInTheVoidGame = (
         Object.values(Direction).forEach(dir => {
           const neighborCoords = getNeighborCoords(currentCoords, dir);
           if (neighborCoords !== null) {
-            moves.push({ move: 'moveShip', args: [dir] });
+            // Only allow AI to move to current neighbor cell if it moves the ship closer to a detected star system card
+            let closerNeighborFound = false;
+            for (const detectedStarSystem of G.detectedStarSystems) {
+              let currHexDist = getDistance(G.hexBoard[G.shipStatus.location].cubeCoords, neighborCoords);
+              let neighborHexDist = getDistance(G.hexBoard[detectedStarSystem.hexCoordinate].cubeCoords, neighborCoords);
+              if (neighborHexDist < currHexDist) {
+                closerNeighborFound = true;
+                break;
+              }
+            }
+            if (closerNeighborFound) {
+              moves.push({ move: 'moveShip', args: [dir] });
+            }
           }
         });
       }
@@ -755,7 +769,7 @@ export const makeLightsInTheVoidGame = (
             || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange >= 1)
             || effects.numResearchTokens > 0
           ) {
-          moves.push({ move: 'collectResources', args: [key] });
+            moves.push({ move: 'collectResources', args: [key] });
           }
         }
       }
@@ -770,7 +784,7 @@ export const makeLightsInTheVoidGame = (
             || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange >= 1)
             || effects.numResearchTokens > 0
           ) {
-          moves.push({ move: 'collectResources', args: [key] });
+            moves.push({ move: 'collectResources', args: [key] });
           }
         }
       }
