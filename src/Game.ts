@@ -309,14 +309,21 @@ function getDistance(currCoords: CubeCoords, newCoords: CubeCoords) {
   return Math.max(Math.abs(currCoords.q - newCoords.q), Math.abs(currCoords.r - newCoords.r), Math.abs(currCoords.s - newCoords.s));
 }
 
-export function moveShip({ G }: { G: LightsInTheVoidState }, dir: Direction) {
-  let newCoords = getNeighborCoords(G.hexBoard[G.shipStatus.location].cubeCoords, dir);
-  if (newCoords === null) {
+export function moveShip({ G }: { G: LightsInTheVoidState }, ...dirs: Direction[]) {
+  if (dirs.length > G.shipStatus.speed) {
     return INVALID_MOVE;
+  }
+  let currCoords = G.hexBoard[G.shipStatus.location].cubeCoords;
+  for (const currDir of dirs) {
+    let newCoords = getNeighborCoords(currCoords, currDir);
+    if (newCoords === null) {
+      return INVALID_MOVE;
+    }
+    currCoords = newCoords;
   }
 
   // use hexBoardReverse to get the new hex key
-  let newHexKey = G.reverseHexBoard[`${newCoords.q},${newCoords.r},${newCoords.s}`];
+  let newHexKey = G.reverseHexBoard[`${currCoords.q},${currCoords.r},${currCoords.s}`];
 
   // Update the ship location to the new hex
   G.shipStatus.location = newHexKey;
