@@ -3,12 +3,22 @@
     "cost": 1,
     "maxEnergyChange": 0,
     "maxArmorChange": 1,
-    "speedChange": 0
+    "speedChange": 0,
+    "unlocksDeck": false
   },
   "test2": {
     "cost": 2,
     "maxEnergyChange": 1,
     "maxArmorChange": 0,
-    "speedChange": 1
+    "speedChange": 1,
+    "unlocksDeck": false
+  },
+  "test3": {
+    "cost": 3,
+    "costIncrease": 1,
+    "maxEnergyChange": 0,
+    "maxArmorChange": 0,
+    "speedChange": 0,
+    "unlocksDeck": true
   }
 }

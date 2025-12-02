@@ -52,10 +52,16 @@ interface LightsInTheVoidState {
   playerPoints: Record<string, number>;
   playedCards: StarSystemCard[];
   playerSubIconCollections: Record<string, Record<string, string[]>>;
-  zoneDecks: Record<string, StarSystemCard[]>;
+  researchedCount: Record<string, number>;
+  zoneDecks: ZoneDeck[];
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
   phasePointTotals: number[];
+}
+
+export type ZoneDeck = {
+  cards: StarSystemCard[];
+  isLocked: boolean;
 }
 
 type ShipStatus = {
@@ -137,9 +143,11 @@ export type TokenEffectsConfig = Record<string, TokenEffects>;
 
 export type ResearchTopic = {
   cost: number;
+  costIncrease?: number;
   maxEnergyChange: number;
   maxArmorChange: number;
   speedChange: number;
+  unlocksDeck: boolean;
 }
 
 export type ResearchTopicsConfig = Record<string, ResearchTopic>;
@@ -320,10 +328,10 @@ export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number)
     return INVALID_MOVE;
   }
   const zoneDeck = G.zoneDecks[zoneNumber];
-  if (zoneDeck.length === 0) {
+  if (zoneDeck.isLocked || zoneDeck.cards.length === 0) {
     return INVALID_MOVE;
   }
-  let drawnCard = zoneDeck.pop()!;
+  let drawnCard = zoneDeck.cards.pop()!;
   if (G.detectedStarSystems.length >= 5) {
     // just auto-discard the oldest detected star system
     // TODO: replace with proper discard logic later
@@ -418,14 +426,32 @@ export function collectResources({ G }: { G: LightsInTheVoidState }, tokenToColl
 
 export function doResearch({ G }: { G: LightsInTheVoidState }, researchTopicName: string) {
   let researchTopic = config.researchTopics?.[researchTopicName];
-  let status = G.shipStatus;
-  if (!researchTopic || status.numResearchTokens < researchTopic.cost) {
+  if (!researchTopic) {
     return INVALID_MOVE;
   }
-  status.numResearchTokens -= researchTopic.cost;
+  
+  if (!G.researchedCount[researchTopicName]) {
+    G.researchedCount[researchTopicName] = 0;
+  }
+  const costIncrease = researchTopic.costIncrease ? G.researchedCount[researchTopicName] * researchTopic.costIncrease : 0;
+  const actualCost = researchTopic.cost + costIncrease;
+  let status = G.shipStatus;
+  if (status.numResearchTokens < actualCost) {
+    return INVALID_MOVE;
+  }
+  if (researchTopic.unlocksDeck) {
+    const deckToUnlock = G.zoneDecks.find(d => d.isLocked);
+    if (!deckToUnlock) {
+      return INVALID_MOVE;
+    }
+    deckToUnlock.isLocked = false;
+  }
+  status.numResearchTokens -= actualCost;
   status.maxEnergy += researchTopic.maxEnergyChange;
   status.maxArmor += researchTopic.maxArmorChange;
   status.speed += researchTopic.speedChange;
+
+  G.researchedCount[researchTopicName]++; 
 }
 
 function lookupKey(token: CelestialBodyToken): string {
@@ -573,7 +599,7 @@ export function ShipDestroyed(G: LightsInTheVoidState) {
 }
 
 export const makeLightsInTheVoidGame = (
-  cards: Record<string, StarSystemCard[]>,
+  decks: ZoneDeck[],
   itineraryCards: ItineraryCard[],
   tokenEffects: TokenEffectsConfig,
   researchTopics: ResearchTopicsConfig,
@@ -596,7 +622,7 @@ export const makeLightsInTheVoidGame = (
     const { hexes, reverseHexes } = generateHexes();
 
     // Extract Zone 0 card for initial play
-    const zone0Card = cards[0].pop()!;
+    const zone0Card = decks[0].cards.pop()!;
 
     // Initialize player itinerary cards
     const playerItineraryCards = Object.fromEntries(
@@ -650,14 +676,15 @@ export const makeLightsInTheVoidGame = (
         speed: 1,
       },
       playerItineraryCards: playerItineraryCards,
-      detectedStarSystems: Array.from({ length: 5 }, () => cards[1].pop()!),
+      detectedStarSystems: Array.from({ length: 5 }, () => decks[1].cards.pop()!),
       playerPoints: playerPoints,
       playedCards: [zone0Card],
-      zoneDecks: cards,
+      zoneDecks: decks,
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
       phasePointTotals: [],
       playerSubIconCollections: playerSubIconCollections,
+      researchedCount: {},
     };
   },
 
@@ -754,7 +781,7 @@ export const makeLightsInTheVoidGame = (
       // 3. Enumerate drawCard moves
       Object.keys(G.zoneDecks).forEach(zoneNumStr => {
         const zoneNum = parseInt(zoneNumStr);
-        if (G.zoneDecks[zoneNum].length > 0) {
+        if (!G.zoneDecks[zoneNum].isLocked && G.zoneDecks[zoneNum].cards.length > 0) {
           moves.push({ move: 'drawCard', args: [zoneNum] });
         }
       });

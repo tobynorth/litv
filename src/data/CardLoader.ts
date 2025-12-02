@@ -1,4 +1,4 @@
-import { Card, StarSystemCard, ItineraryCard, TokenEffectsConfig, ResearchTopicsConfig } from '../Game';
+import { Card, StarSystemCard, ItineraryCard, ZoneDeck, TokenEffectsConfig, ResearchTopicsConfig } from '../Game';
 import starSystemData from './star_system_cards.json';
 import itineraryData from './itinerary_cards.json';
 import tokenEffectsData from './celestial_body_token_types.json';
@@ -8,21 +8,21 @@ const CDN_URL = "CDN_URL"; // TODO: set CDN URL
 export class CardLoader {
   // Note: this is async in ancticipation of future fetching from CDN if local json file load fails
   // TODO: implement CDN fetch fallback
-  static async loadStarSystemCards(): Promise<Record<string, StarSystemCard[]>> {
+  static async loadStarSystemCards(): Promise<ZoneDeck[]> {
     let cardData = starSystemData.cards as StarSystemCard[];
-    const zoneDecks: Record<string, StarSystemCard[]> = {};
+    const zoneDecks: ZoneDeck[] = [];
     cardData.forEach(card => {
       const zone = card.zoneNumber;
       if (!zoneDecks[zone]) {
-        zoneDecks[zone] = [];
+        zoneDecks[zone] = {"cards": [], "isLocked": zone !== 1};
       }
-      zoneDecks[zone].push(card);
+      zoneDecks[zone].cards.push(card);
     });
 
     // Shuffle the cards in each zone
-    Object.keys(zoneDecks).forEach(zone => {
-      zoneDecks[zone] = this.shuffleArray(zoneDecks[zone]) as StarSystemCard[];
-    });
+    for (const zoneDeck of zoneDecks) {
+      zoneDeck.cards = this.shuffleArray(zoneDeck.cards) as StarSystemCard[];
+    }
 
     return zoneDecks;
   }

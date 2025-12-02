@@ -1,5 +1,5 @@
 import { Client } from 'boardgame.io/client';
-import { StarSystemCard, ItineraryCard, TokenEffectsConfig, makeLightsInTheVoidGame, ResearchTopicsConfig } from './Game';
+import { StarSystemCard, ItineraryCard, TokenEffectsConfig, makeLightsInTheVoidGame, ResearchTopicsConfig, ZoneDeck } from './Game';
 import { CardLoader } from './data/CardLoader';
 
 const NUM_PLAYERS = 2;
@@ -9,7 +9,7 @@ const WIN_THRESHOLD = 25 * NUM_PLAYERS * NUM_PHASES;
 class LightsInTheVoidClient {
   client: ReturnType<typeof Client>;
   constructor(
-    starSystemCards: Record<string, StarSystemCard[]>,
+    starSystemCards: ZoneDeck[],
     itineraryCards: ItineraryCard[],
     tokenEffectsConfig: TokenEffectsConfig,
     researchTopics: ResearchTopicsConfig,
