@@ -3,7 +3,7 @@
 import { AiEnumerate, Game } from 'boardgame.io';
 import { INVALID_MOVE } from 'boardgame.io/core';
 
-const ROUNDS_PER_PHASE = 1;
+const ROUNDS_PER_PHASE = 5;
 
 enum Direction {
   W = "W",
