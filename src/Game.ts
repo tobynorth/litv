@@ -819,7 +819,9 @@ export const makeLightsInTheVoidGame = (
       // 5. Enumerate doResearch moves
       Object.keys(config.researchTopics!).forEach(topicName => {
         const topic = config.researchTopics![topicName];
-        if (G.shipStatus.numResearchTokens >= topic.cost) {
+        const costIncrease = topic.costIncrease ? G.researchedCount[topicName] * topic.costIncrease : 0;
+        const actualCost = topic.cost + costIncrease;
+        if (G.shipStatus.numResearchTokens >= actualCost && (!topic.unlocksDeck || G.zoneDecks.find(d => d.isLocked))) {
           moves.push({ move: 'doResearch', args: [topicName] });
         }
       });
