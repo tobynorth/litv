@@ -749,7 +749,14 @@ export const makeLightsInTheVoidGame = (
       if (currentLocation.celestialBodyToken) {
         const key = lookupKey(currentLocation.celestialBodyToken);
         if (config.tokenEffects && config.tokenEffects[key]) {
+          let effects = config.tokenEffects[key];
+          if (
+            (G.shipStatus.armor < G.shipStatus.maxArmor && effects.armorChange > 0)
+            || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange >= 1)
+            || effects.numResearchTokens > 0
+          ) {
           moves.push({ move: 'collectResources', args: [key] });
+          }
         }
       }
 
@@ -757,7 +764,14 @@ export const makeLightsInTheVoidGame = (
         const doubleHex = currentLocation as DoubleTokenHexCell;
         const key = lookupKey(doubleHex.celestialBodyToken2!);
         if (config.tokenEffects && config.tokenEffects[key]) {
+          let effects = config.tokenEffects[key];
+          if (
+            (G.shipStatus.armor < G.shipStatus.maxArmor && effects.armorChange > 0)
+            || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange >= 1)
+            || effects.numResearchTokens > 0
+          ) {
           moves.push({ move: 'collectResources', args: [key] });
+          }
         }
       }
 
