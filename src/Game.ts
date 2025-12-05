@@ -816,7 +816,19 @@ export const makeLightsInTheVoidGame = (
     enumerate: (G) => {
       let moves: AiEnumerate = [];
 
-      // 1. Enumerate moveShip moves
+      // 1. Enumerate playCard moves (highest priority)
+      G.detectedStarSystems.forEach((card) => {
+        if (G.shipStatus.location === card.hexCoordinate) {
+          moves.push({ move: 'playCard', args: [card.title] });
+        }
+      });
+
+      // If a card can be played right now, that's objectively better than vitually anything else, so don't consider any other move
+      if (moves.length > 0) {
+        return moves;
+      }
+
+      // 2. Enumerate moveShip moves
       const currentLocation = G.hexBoard[G.shipStatus.location];
 
       if (G.shipStatus.energy > 1) {
@@ -863,13 +875,7 @@ export const makeLightsInTheVoidGame = (
           }
         }
       }
-
-      // 2. Enumerate playCard moves
-      G.detectedStarSystems.forEach((card) => {
-        if (G.shipStatus.location === card.hexCoordinate) {
-          moves.push({ move: 'playCard', args: [card.title] });
-        }
-      });
+      
 
       // 3. Enumerate drawCard moves
       Object.keys(G.zoneDecks).forEach(zoneNumStr => {
@@ -918,12 +924,6 @@ export const makeLightsInTheVoidGame = (
           moves.push({ move: 'doResearch', args: [topicName] });
         }
       });
-
-      // If a card can be played right now, that's objectively better than vitually anything else, so don't consider any other move
-      const playCardMoves = moves.filter(m => (m as { "move": string }).move === 'playCard');
-      if (playCardMoves.length > 0) {
-        return playCardMoves;
-      }
 
       return moves;
     },
