@@ -605,6 +605,70 @@ export function ShipDestroyed(G: LightsInTheVoidState) {
   return G.shipStatus.armor <= 0 || G.shipStatus.energy <= 0;
 }
 
+// Helper function to check if a path endpoint is strategically valid
+function isPathValid(
+  G: LightsInTheVoidState,
+  currentCoords: CubeCoords,
+  endpointCoords: CubeCoords,
+  ignoredSystemCoords: Set<string>
+): boolean {
+  // Check if endpoint is closer to at least one detected star system (excluding ignored ones)
+  for (const system of G.detectedStarSystems) {
+    const systemCoords = G.hexBoard[system.hexCoordinate].cubeCoords;
+    const coordsKey = `${systemCoords.q},${systemCoords.r},${systemCoords.s}`;
+
+    // Skip systems we're ignoring
+    if (ignoredSystemCoords.has(coordsKey)) {
+      continue;
+    }
+
+    const distCurrentToSystem = getDistance(currentCoords, systemCoords);
+    const distEndpointToSystem = getDistance(endpointCoords, systemCoords);
+
+    if (distEndpointToSystem < distCurrentToSystem) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+// Generate paths to unique endpoints using BFS (one path per destination)
+function generatePaths(currentCoords: CubeCoords, maxLength: number): Direction[][] {
+  // Map from endpoint key to path that reaches it
+  const endpointPaths = new Map<string, Direction[]>();
+
+  // Queue: [currentCoords, pathSoFar]
+  const queue: Array<[CubeCoords, Direction[]]> = [[currentCoords, []]];
+
+  while (queue.length > 0) {
+    const [coords, path] = queue.shift()!;
+
+    // Stop if we've reached max length
+    if (path.length >= maxLength) {
+      continue;
+    }
+
+    // Try all 6 directions - endpoint deduplication handles redundancy
+    for (const dir of Object.values(Direction)) {
+      const nextCoords = getNeighborCoords(coords, dir);
+      if (nextCoords === null) continue;
+
+      const newPath = [...path, dir];
+      const endpointKey = `${nextCoords.q},${nextCoords.r},${nextCoords.s}`;
+
+      // Only add if we haven't seen this endpoint before
+      // BFS ensures we find shortest path first
+      if (!endpointPaths.has(endpointKey)) {
+        endpointPaths.set(endpointKey, newPath);
+        queue.push([nextCoords, newPath]);
+      }
+    }
+  }
+
+  return Array.from(endpointPaths.values());
+}
+
 export const makeLightsInTheVoidGame = (
   decks: ZoneDeck[],
   itineraryCards: ItineraryCard[],
@@ -758,24 +822,47 @@ export const makeLightsInTheVoidGame = (
 
       if (G.shipStatus.energy > 1) {
         const currentCoords = currentLocation.cubeCoords;
-        Object.values(Direction).forEach(dir => {
-          const neighborCoords = getNeighborCoords(currentCoords, dir);
-          if (neighborCoords !== null) {
-            // Only allow AI to move to current neighbor cell if it moves the ship closer to a detected star system card
-            let closerNeighborFound = false;
-            for (const detectedStarSystem of G.detectedStarSystems) {
-              let currHexDist = getDistance(G.hexBoard[G.shipStatus.location].cubeCoords, neighborCoords);
-              let neighborHexDist = getDistance(G.hexBoard[detectedStarSystem.hexCoordinate].cubeCoords, neighborCoords);
-              if (neighborHexDist < currHexDist) {
-                closerNeighborFound = true;
-                break;
-              }
-            }
-            if (closerNeighborFound) {
-              moves.push({ move: 'moveShip', args: [dir] });
+
+        // Generate all possible paths up to ship's speed
+        const allPaths = generatePaths(currentCoords, G.shipStatus.speed);
+
+        // Add partial-speed paths that end on detected systems
+        const partialSpeedReachableSystems = new Set<string>();
+        for (const path of allPaths.filter(p => p.length < G.shipStatus.speed)) {
+          // Calculate endpoint
+          let endpointCoords = currentCoords;
+          for (const dir of path) {
+            endpointCoords = getNeighborCoords(endpointCoords, dir)!;
+          }
+
+          // Check if endpoint has a detected system
+          for (const system of G.detectedStarSystems) {
+            const systemCoords = G.hexBoard[system.hexCoordinate].cubeCoords;
+            if (systemCoords.q === endpointCoords.q
+                && systemCoords.r === endpointCoords.r
+                && systemCoords.s === endpointCoords.s) {
+              const coordsKey = `${systemCoords.q},${systemCoords.r},${systemCoords.s}`;
+              partialSpeedReachableSystems.add(coordsKey);
+              // This path ends on a detected system, so it's automatically valid
+              moves.push({ move: 'moveShip', args: path });
+              break; // No need to consider whether other detected systems are located here right now
             }
           }
-        });
+        }
+
+        // Enumerate full-speed paths, ignoring partial-speed reachable systems
+        for (const path of allPaths.filter(p => p.length === G.shipStatus.speed)) {
+          // Calculate endpoint of this path (all paths guaranteed navigable by generatePaths)
+          let endpointCoords = currentCoords;
+          for (const dir of path) {
+            endpointCoords = getNeighborCoords(endpointCoords, dir)!;
+          }
+
+          // Check if path gets closer to systems not reachable with partial speed
+          if (isPathValid(G, currentCoords, endpointCoords, partialSpeedReachableSystems)) {
+            moves.push({ move: 'moveShip', args: path });
+          }
+        }
       }
 
       // 2. Enumerate playCard moves
