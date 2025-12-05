@@ -780,11 +780,10 @@ export const makeLightsInTheVoidGame = (
       if (ctx.turn >= config.maxTurns!) {
         // Calculate cumulative points
         const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
-
         if (cumulativePoints >= winThreshold) {
-          events.endGame({ playersWin: true, score: cumulativePoints });
+          events.endGame({ playersWin: true, winner: "0", finalScore: cumulativePoints });
         } else {
-          events.endGame({ playersLose: true, score: cumulativePoints });
+          events.endGame({ playersLose: true, winner: null, finalScore: cumulativePoints });
         }
       }
     },
@@ -809,7 +808,7 @@ export const makeLightsInTheVoidGame = (
     // Check for early loss condition (ship destroyed)
     if (ShipDestroyed(G)) {
       const cumulativePoints = G.phasePointTotals.reduce((sum, total) => sum + total, 0);
-      return { playersLose: true, score: cumulativePoints };
+      return { playersLose: true, winner: null, finalScore: cumulativePoints };
     }
   },
 
