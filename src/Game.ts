@@ -918,6 +918,13 @@ export const makeLightsInTheVoidGame = (
           moves.push({ move: 'doResearch', args: [topicName] });
         }
       });
+
+      // If a card can be played right now, that's objectively better than vitually anything else, so don't consider any other move
+      const playCardMoves = moves.filter(m => (m as { "move": string }).move === 'playCard');
+      if (playCardMoves.length > 0) {
+        return playCardMoves;
+      }
+
       return moves;
     },
   },
