@@ -878,9 +878,16 @@ export const makeLightsInTheVoidGame = (
         }
       });
 
+      // remove duplicate playCard moves (from 'any' icon handling)
+      moves = moves.filter((move, index, self) =>
+        index === self.findIndex(m =>
+          'args' in m && 'args' in move &&
+          m.args![0] === move.args![0] && m.args![1] === move.args![1]
+        )
+      );
+
       // If a card can be played right now, that's objectively better than vitually anything else, so don't consider any other move
       if (moves.length > 0) {
-        console.log("moves: " + JSON.stringify(moves));
         return moves;
       }
 
