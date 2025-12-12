@@ -21,11 +21,11 @@ enum CelestialBodyType {
   White = "white",
   Blue = "blue",
   Planet = "planet",
-  WhiteDwarf = "white-dwarf",
-  BrownDwarf = "brown-dwarf",
+  WhiteDwarf = "whitedwarf",
+  BrownDwarf = "browndwarf",
   Nebula = "nebula",
-  NeutronStar = "neutron-star",
-  BlackHole = "black-hole",
+  NeutronStar = "neutronstar",
+  BlackHole = "blackhole",
   Wormhole = "wormhole",
   Any = "any",
 }
@@ -33,7 +33,7 @@ enum CelestialBodyType {
 enum CelestialBodySize {
   Normal = "normal",
   Giant = "giant",
-  Supergiant = "super-giant",
+  Supergiant = "supergiant",
 }
 
 const DIRECTIONS = {
@@ -347,15 +347,45 @@ export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number)
   G.detectedStarSystems.push(drawnCard);
 }
 
-export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: string }, cardTitle: string) {
+export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: string }, cardTitle: string, tokenToPlayKey: string) {
   let cardToPlayIndex = G.detectedStarSystems.findIndex(c => c.title === cardTitle);
   if (
       cardToPlayIndex === -1
       || G.shipStatus.location !== G.detectedStarSystems[cardToPlayIndex].hexCoordinate
+      || !tokenToPlayKey
     ) {
     return INVALID_MOVE;
   }
-  
+
+  // Reconstruct the token from the key
+  const tokenToPlay = reconstructTokenFromKey(tokenToPlayKey);
+  if (!tokenToPlay) {
+    return INVALID_MOVE;
+  }
+
+  let foundMatch = false;
+  for (let icon of G.detectedStarSystems[cardToPlayIndex].celestialBodyIcons) {
+    if (icon.type === tokenToPlay.type && (!("size" in icon) || !("size" in tokenToPlay) || icon.size! === tokenToPlay.size)) {
+      foundMatch = true;
+      break;
+    } else if (icon.type === CelestialBodyType.Any) {
+      const concreteTypes: AllowedAnyIconType[] = [
+        CelestialBodyType.Red,
+        CelestialBodyType.Orange,
+        CelestialBodyType.Yellow,
+        CelestialBodyType.White,
+        CelestialBodyType.Blue,
+      ];
+      if (concreteTypes.includes(tokenToPlay.type as AllowedAnyIconType) && (!("size" in tokenToPlay) || tokenToPlay.size === CelestialBodySize.Normal)) {
+        foundMatch = true;
+        break;
+      }
+    }
+  }
+  if (!foundMatch) {
+    return INVALID_MOVE;
+  }
+
   // Move card to played cards
   let cardToPlay = G.detectedStarSystems.splice(cardToPlayIndex, 1)[0];
   G.playedCards.push(cardToPlay);
@@ -367,34 +397,10 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   // Calculate bonus points from itinerary matches
   awardItineraryBonusPoints(cardToPlay, G.playerItineraryCards, G.playerPoints, G.playerSubIconCollections);
 
-  // Randomly choose icon to play as token based on card's celestialBodyIcons
-  // TODO: allow player to choose which icon to play instead of random
-  let iconIndex = Math.floor(Math.random() * cardToPlay.celestialBodyIcons.length);
-  let selectedIcon = cardToPlay.celestialBodyIcons[iconIndex];
-
-  // If selectedIcon is of type 'any', randomly choose a concrete type. Otherwise, just place a token of that type.
-  let tokenType;
-  let token: CelestialBodyToken;
-  if (selectedIcon.type === CelestialBodyType.Any) {
-    const concreteTypes: AllowedAnyIconType[] = [
-      CelestialBodyType.Red,
-      CelestialBodyType.Orange,
-      CelestialBodyType.Yellow,
-      CelestialBodyType.White,
-      CelestialBodyType.Blue,
-    ];
-    tokenType = concreteTypes[Math.floor(Math.random() * concreteTypes.length)];
-    token = { type: tokenType, size: CelestialBodySize.Normal };
-  } else if ("size" in selectedIcon) {
-    token = { type: selectedIcon.type, size: selectedIcon.size };
-  } else {
-    token = { type: selectedIcon.type };
-  }
-
   // place celestial body token + any research tokens on board
   let currHex = G.hexBoard[G.shipStatus.location];
-  currHex.celestialBodyToken = token;
-  currHex.numResearchTokens = config.tokenEffects![lookupKey(token)].numResearchTokens;
+  currHex.celestialBodyToken = tokenToPlay;
+  currHex.numResearchTokens = config.tokenEffects![tokenToPlayKey].numResearchTokens;
 }
 
 export function collectResources({ G }: { G: LightsInTheVoidState }, tokenToCollectFromKey: string) {
@@ -467,6 +473,33 @@ function lookupKey(token: CelestialBodyToken): string {
     return `${token.type}-${token.size}`;
   } else {
     return token.type;
+  }
+}
+
+function reconstructTokenFromKey(key: string): CelestialBodyToken | null {
+  // Reverse of lookupKey - reconstruct token from key string
+  const parts = key.split('-');
+  switch (parts[0]) {
+    case CelestialBodyType.Red:
+    case CelestialBodyType.Orange:
+    case CelestialBodyType.Yellow:
+    case CelestialBodyType.White:
+    case CelestialBodyType.Blue:
+    case CelestialBodyType.Nebula:
+    case CelestialBodyType.BlackHole:
+      if (parts.length >= 2) {
+        const size = parts[1] as CelestialBodySize;
+        return { type: parts[0], size: size };
+      }
+      return null;
+    case CelestialBodyType.Planet:
+    case CelestialBodyType.WhiteDwarf:
+    case CelestialBodyType.BrownDwarf:
+    case CelestialBodyType.NeutronStar:
+      return { type: parts[0] };
+    case CelestialBodyType.Wormhole:
+    default:
+      return null;
   }
 }
 
@@ -819,12 +852,35 @@ export const makeLightsInTheVoidGame = (
       // 1. Enumerate playCard moves (highest priority)
       G.detectedStarSystems.forEach((card) => {
         if (G.shipStatus.location === card.hexCoordinate) {
-          moves.push({ move: 'playCard', args: [card.title] });
+          card.celestialBodyIcons.forEach((icon) => {
+            if (icon.type === CelestialBodyType.Any) {
+              const concreteTypes: AllowedAnyIconType[] = [
+                CelestialBodyType.Red,
+                CelestialBodyType.Orange,
+                CelestialBodyType.Yellow,
+                CelestialBodyType.White,
+                CelestialBodyType.Blue,
+              ];
+              for (const concreteType of concreteTypes) {
+                let token: CelestialBodyToken = { type: concreteType, size: CelestialBodySize.Normal };
+                moves.push({ move: 'playCard', args: [card.title, lookupKey(token)] } );
+              }
+            } else {
+              let token: CelestialBodyToken;
+              if ("size" in icon) {
+                token = { type: icon.type, size: icon.size };
+              } else {
+                token = { type: icon.type };
+              }
+              moves.push({ move: 'playCard', args: [card.title, lookupKey(token)] } );
+            }
+          });
         }
       });
 
       // If a card can be played right now, that's objectively better than vitually anything else, so don't consider any other move
       if (moves.length > 0) {
+        console.log("moves: " + JSON.stringify(moves));
         return moves;
       }
 
