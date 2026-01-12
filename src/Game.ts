@@ -348,6 +348,7 @@ export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number)
 }
 
 export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: string }, cardTitle: string, tokenToPlayKey: string) {
+  console.log("I need to log something!");
   let cardToPlayIndex = G.detectedStarSystems.findIndex(c => c.title === cardTitle);
   if (
       cardToPlayIndex === -1
