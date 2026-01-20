@@ -330,7 +330,7 @@ export function moveShip({ G }: { G: LightsInTheVoidState }, ...dirs: Direction[
   G.shipStatus.energy -= 1;
 };
 
-export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number) {
+export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number, cardToDiscard: string | null = null) {
   if (zoneNumber < 1 || zoneNumber > Object.keys(G.zoneDecks).length) {
     return INVALID_MOVE;
   }
@@ -338,12 +338,18 @@ export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number)
   if (zoneDeck.isLocked || zoneDeck.cards.length === 0) {
     return INVALID_MOVE;
   }
-  let drawnCard = zoneDeck.cards.pop()!;
   if (G.detectedStarSystems.length >= 5) {
-    // just auto-discard the oldest detected star system
-    // TODO: replace with proper discard logic later
-    G.detectedStarSystems.shift();
+    if (cardToDiscard) {
+      let discardIndex = G.detectedStarSystems.findIndex(c => c.title === cardToDiscard);
+      if (discardIndex === -1) {
+        return INVALID_MOVE;
+      }
+      G.detectedStarSystems.splice(discardIndex, 1);
+    } else {
+      return INVALID_MOVE;
+    }
   }
+  let drawnCard = zoneDeck.cards.pop()!;
   G.detectedStarSystems.push(drawnCard);
 }
 
@@ -944,7 +950,14 @@ export const makeLightsInTheVoidGame = (
       Object.keys(G.zoneDecks).forEach(zoneNumStr => {
         const zoneNum = parseInt(zoneNumStr);
         if (!G.zoneDecks[zoneNum].isLocked && G.zoneDecks[zoneNum].cards.length > 0) {
-          moves.push({ move: 'drawCard', args: [zoneNum] });
+          if (G.detectedStarSystems.length < 5) {
+            moves.push({ move: 'drawCard', args: [zoneNum] });
+          } else {
+            // If there are already 5 detected star systems, must specify a card to discard
+            G.detectedStarSystems.forEach(card => {
+              moves.push({ move: 'drawCard', args: [zoneNum, card.title] });
+            });
+          }
         }
       });
 
