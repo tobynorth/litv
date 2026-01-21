@@ -743,6 +743,25 @@ function findHighestValueTargets(G: LightsInTheVoidState): StarSystemCard[] {
     .map(cs => cs.card);
 }
 
+function findLowestValueTarget(G: LightsInTheVoidState): StarSystemCard | null {
+  const cards = G.detectedStarSystems;
+  if (cards.length === 0) return null;
+  // Calculate points for each card
+  const cardScores = cards.map(card => ({
+    card,
+    points: calculateTotalCardPoints(card, G),
+  }));
+  // Find min points
+  const minPoints = Math.min(...cardScores.map(cs => cs.points));
+  // Return cards with min points
+  const currCoords = G.hexBoard[G.shipStatus.location].cubeCoords;
+  return cardScores
+    .filter(cs => cs.points === minPoints)
+    .sort((a, b) => getDistance(currCoords, G.hexBoard[b.card.hexCoordinate].cubeCoords) - getDistance(currCoords, G.hexBoard[a.card.hexCoordinate].cubeCoords))
+    .slice(0, 1)
+    .map(cs => cs.card)[0];
+}
+
 // Check if cardA is "on the way" to cardB (within 2 extra moves)
 function isOnTheWay(
   currentCoords: CubeCoords,
@@ -1109,9 +1128,8 @@ export const makeLightsInTheVoidGame = (
             moves.push({ move: 'drawCard', args: [zoneNum] });
           } else {
             // If there are already 5 detected star systems, must specify a card to discard
-            G.detectedStarSystems.forEach(card => {
-              moves.push({ move: 'drawCard', args: [zoneNum, card.title] });
-            });
+            const minValueTarget = findLowestValueTarget(G);
+            moves.push({ move: 'drawCard', args: [zoneNum, minValueTarget!.title] });
           }
         }
       });
