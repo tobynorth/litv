@@ -396,12 +396,8 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   let cardToPlay = G.detectedStarSystems.splice(cardToPlayIndex, 1)[0];
   G.playedCards.push(cardToPlay);
 
-  // Calculate base points from playing the card
-  let points = cardToPlay.zoneNumber * 2 - 1;
-  G.playerPoints[playerID] += points;
-
-  // Calculate bonus points from itinerary matches
-  awardItineraryBonusPoints(cardToPlay, G.playerItineraryCards, G.playerPoints, G.playerSubIconCollections);
+  // Calculate and apply points for all players
+  applyCardPoints(cardToPlay, playerID, G);
 
   // place celestial body token + any research tokens on board
   let currHex = G.hexBoard[G.shipStatus.location];
@@ -509,48 +505,50 @@ function reconstructTokenFromKey(key: string): CelestialBodyToken | null {
   }
 }
 
-// Helper function to award bonus points based on itinerary card matches
-function awardItineraryBonusPoints(
+// Pure function: Calculate per-player points for playing a card WITHOUT modifying game state
+function calculateCardPointsPerPlayer(
   card: StarSystemCard,
+  currentPlayerID: string,
   playerItineraryCards: Record<string, ItineraryCard>,
-  playerPoints: Record<string, number>,
   playerSubIconCollections: Record<string, Record<string, string[]>>
-) {
-  // Award bonus points for itinerary icon matches
-  card.itineraryIcons.forEach(itineraryIcon => {
-    Object.entries(playerItineraryCards).forEach(([playerID, itineraryCard]) => {
-      if (itineraryIcon.name === itineraryCard.name) {
-        playerPoints[playerID] += itineraryCard.pointsPerItineraryIcon;
+): Record<string, number> {
+  const pointsPerPlayer: Record<string, number> = {};
 
+  // Initialize all players to 0 points
+  Object.keys(playerItineraryCards).forEach(pID => {
+    pointsPerPlayer[pID] = 0;
+  });
+
+  // Base points: only awarded to the player who played the card
+  pointsPerPlayer[currentPlayerID] = card.zoneNumber * 2 - 1;
+
+  // Calculate bonus points for itinerary icon matches
+  card.itineraryIcons.forEach(itineraryIcon => {
+    Object.entries(playerItineraryCards).forEach(([pID, itineraryCard]) => {
+      if (itineraryIcon.name === itineraryCard.name) {
+        pointsPerPlayer[pID] += itineraryCard.pointsPerItineraryIcon;
+
+        // Handle subicon bonuses
         if (itineraryIcon.subicon && itineraryCard.subicons && itineraryCard.subIconStrategy) {
           const subicon = itineraryIcon.subicon;
 
           if (subicon && itineraryCard.subicons.includes(subicon)) {
-            // Initialize tracking if not exists
-            if (!playerSubIconCollections[playerID]) {
-              playerSubIconCollections[playerID] = {};
-            }
-            if (!playerSubIconCollections[playerID][itineraryCard.name]) {
-              playerSubIconCollections[playerID][itineraryCard.name] = [];
-            }
-
-            let collection = playerSubIconCollections[playerID][itineraryCard.name];
+            // Get current collection (or empty array if doesn't exist)
+            const currentCollection = playerSubIconCollections[pID]?.[itineraryCard.name] || [];
 
             if (itineraryCard.subIconStrategy === 'incremental') {
               // Famous Constellations: Award +1 bonus point for each matching subicon already collected
-              const bonus = collection.filter(s => s === subicon).length;
-              playerPoints[playerID] += bonus;
-              // Track this subicon
-              collection.push(subicon);
+              const bonus = currentCollection.filter(s => s === subicon).length;
+              pointsPerPlayer[pID] += bonus;
             } else if (itineraryCard.subIconStrategy === 'set-completion' && itineraryCard.setSize && itineraryCard.pointsPerSubIconSet) {
-              // Travel the World: Award bonus for each completed set of 6
-              // First add the new subicon
-              collection.push(subicon);
+              // Travel the World: Award bonus if adding this subicon completes a new set
+              // Simulate adding the new subicon
+              const simulatedCollection = [...currentCollection, subicon];
+              const uniqueSubicons = new Set(simulatedCollection);
 
-              // Check if we have enough unique subicons and if this card completed a new set
-              const uniqueSubicons = new Set(collection);
+              // Check if this would complete a new set
               if (uniqueSubicons.size % itineraryCard.setSize === 0) {
-                playerPoints[playerID] += itineraryCard.pointsPerSubIconSet;
+                pointsPerPlayer[pID] += itineraryCard.pointsPerSubIconSet;
               }
             }
           }
@@ -559,13 +557,13 @@ function awardItineraryBonusPoints(
     });
   });
 
-  // Award bonus points for celestial body icon matches
-  Object.entries(playerItineraryCards).forEach(([playerID, itineraryCard]) => {
+  // Calculate bonus points for celestial body icon matches
+  Object.entries(playerItineraryCards).forEach(([pID, itineraryCard]) => {
     if (itineraryCard.matchingCelestialBodyIcons.length === 0) {
       return;
     }
 
-    // handle 1st set of matching icons
+    // Handle 1st set of matching icons
     let numMatchingIcons = 0;
     let minimumMatchingIcons = itineraryCard.minimumNumberCelestialBodyIcons ?? 1;
     card.celestialBodyIcons.forEach(celestialBodyIcon => {
@@ -577,15 +575,15 @@ function awardItineraryBonusPoints(
             || celestialBodyIcon.size === matchingIcon.size
           )
         ) {
-          numMatchingIcons += celestialBodyIcon.count
+          numMatchingIcons += celestialBodyIcon.count;
         }
       });
     });
     if (numMatchingIcons >= minimumMatchingIcons) {
-      playerPoints[playerID] += (itineraryCard.pointsPerMatchingCelestialBodyIcon * numMatchingIcons);
+      pointsPerPlayer[pID] += (itineraryCard.pointsPerMatchingCelestialBodyIcon * numMatchingIcons);
     }
 
-    // handle 2nd set of matching icons (with different # of points)
+    // Handle 2nd set of matching icons (with different # of points)
     if (itineraryCard.matchingCelestialBodyIcons2 && itineraryCard.pointsPerMatchingCelestialBodyIcon2) {
       numMatchingIcons = 0;
       card.celestialBodyIcons.forEach(celestialBodyIcon => {
@@ -597,15 +595,82 @@ function awardItineraryBonusPoints(
               || celestialBodyIcon.size === matchingIcon.size
             )
           ) {
-            numMatchingIcons += celestialBodyIcon.count
+            numMatchingIcons += celestialBodyIcon.count;
           }
         });
       });
       if (numMatchingIcons >= minimumMatchingIcons) {
-        playerPoints[playerID] += (itineraryCard.pointsPerMatchingCelestialBodyIcon2 * numMatchingIcons);
+        pointsPerPlayer[pID] += (itineraryCard.pointsPerMatchingCelestialBodyIcon2 * numMatchingIcons);
       }
     }
   });
+
+  return pointsPerPlayer;
+}
+
+// Stateful function: Apply point calculations to game state and handle side effects
+function applyCardPoints(
+  card: StarSystemCard,
+  currentPlayerID: string,
+  G: LightsInTheVoidState
+): void {
+  // Calculate points using pure function
+  const pointsPerPlayer = calculateCardPointsPerPlayer(
+    card,
+    currentPlayerID,
+    G.playerItineraryCards,
+    G.playerSubIconCollections
+  );
+
+  // Apply points to game state
+  Object.entries(pointsPerPlayer).forEach(([pID, points]) => {
+    if (!pID) {
+      return;
+    }
+    G.playerPoints[pID] += points;
+  });
+
+  // Handle side effects: Update playerSubIconCollections
+  card.itineraryIcons.forEach(itineraryIcon => {
+    if (!itineraryIcon.subicon) {
+      return;
+    }
+    Object.entries(G.playerItineraryCards).forEach(([pID, itineraryCard]) => {
+      if (itineraryCard.name === itineraryIcon.name) {
+        const subicon = itineraryIcon.subicon!;
+        if (itineraryCard.subicons!.includes(subicon)) {
+          // Initialize tracking if not exists
+          if (!G.playerSubIconCollections[pID]) {
+            G.playerSubIconCollections[pID] = {};
+          }
+          if (!G.playerSubIconCollections[pID][itineraryCard.name]) {
+            G.playerSubIconCollections[pID][itineraryCard.name] = [];
+          }
+
+          // Track this subicon
+          G.playerSubIconCollections[pID][itineraryCard.name].push(subicon);
+        }
+      }
+    });
+  });
+}
+
+// Calculate total points a card would award to ALL players collectively
+function calculateTotalCardPoints(
+  card: StarSystemCard,
+  G: LightsInTheVoidState
+): number {
+  // Use the pure function to calculate per-player points
+  // Pass player "0" as the one who plays the card (arbitrary choice for calculation purposes)
+  const pointsPerPlayer = calculateCardPointsPerPlayer(
+    card,
+    "0",
+    G.playerItineraryCards,
+    G.playerSubIconCollections
+  );
+
+  // Sum all points across all players
+  return Object.values(pointsPerPlayer).reduce((sum, points) => sum + points, 0);
 }
 
 function completeCurrentPhase(G: LightsInTheVoidState) {
@@ -642,6 +707,66 @@ function completeCurrentPhase(G: LightsInTheVoidState) {
 
 export function ShipDestroyed(G: LightsInTheVoidState) {
   return G.shipStatus.armor <= 0 || G.shipStatus.energy <= 0;
+}
+
+// Check if a card has celestial body icons that award research tokens
+function hasResearchTokenIcons(card: StarSystemCard): boolean {
+  const researchTokenTypes = [
+    CelestialBodyType.BrownDwarf,
+    CelestialBodyType.WhiteDwarf,
+    CelestialBodyType.Nebula,
+    CelestialBodyType.NeutronStar,
+    CelestialBodyType.BlackHole,
+  ];
+
+  return card.celestialBodyIcons.some(icon => researchTokenTypes.includes(icon.type));
+}
+
+// Find highest-value target cards from detectedStarSystems
+function findHighestValueTargets(G: LightsInTheVoidState): StarSystemCard[] {
+  const cards = G.detectedStarSystems;
+  if (cards.length === 0) return [];
+
+  // Calculate points for each card
+  const cardScores = cards.map(card => ({
+    card,
+    points: calculateTotalCardPoints(card, G),
+    hasResearch: hasResearchTokenIcons(card)
+  }));
+
+  // Find max points
+  const maxPoints = Math.max(...cardScores.map(cs => cs.points));
+
+  // Return cards with max points OR cards with research tokens
+  return cardScores
+    .filter(cs => cs.points === maxPoints || cs.hasResearch)
+    .map(cs => cs.card);
+}
+
+// Check if cardA is "on the way" to cardB (within 2 extra moves)
+function isOnTheWay(
+  currentCoords: CubeCoords,
+  cardACoords: CubeCoords,
+  cardBCoords: CubeCoords,
+  shipSpeed: number
+): boolean {
+  const distCurrentToA = getDistance(currentCoords, cardACoords);
+  const distCurrentToB = getDistance(currentCoords, cardBCoords);
+  const distAToB = getDistance(cardACoords, cardBCoords);
+
+  return (distCurrentToA + distAToB) <= (distCurrentToB + 2 * shipSpeed);
+}
+
+// Check if we can reach a card without energy going to 0
+// (Simplified: just checks if we have enough energy for the distance)
+function canReachSafely(
+  currentCoords: CubeCoords,
+  targetCoords: CubeCoords,
+  G: LightsInTheVoidState
+): boolean {
+  const distance = getDistance(currentCoords, targetCoords);
+  // Each move costs 1 energy, need at least 1 energy remaining
+  return (G.shipStatus.energy - 1) * G.shipStatus.speed >= distance;
 }
 
 // Helper function to check if a path endpoint is strategically valid
@@ -734,22 +859,6 @@ export const makeLightsInTheVoidGame = (
     // Extract Zone 0 card for initial play
     const zone0Card = decks[0].cards.pop()!;
 
-    // Initialize player itinerary cards
-    const playerItineraryCards = Object.fromEntries(
-      Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), itineraryCards[i]])
-    );
-
-    // Initialize player points to 0
-    const playerPoints: Record<string, number> = Object.fromEntries(
-      Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), 0])
-    );
-
-    // Initialize player subicon collections
-    const playerSubIconCollections: Record<string, Record<string, string[]>> = {};
-
-    // Award bonus points for Zone 0 card matches (no base points since no one played it)
-    awardItineraryBonusPoints(zone0Card, playerItineraryCards, playerPoints, playerSubIconCollections);
-
     // Place two tokens on HOME hex based on Zone 0 card icons
     const homeHex = hexes["HOME"] as DoubleTokenHexCell;
     // Cast to CelestialBody since Zone 0 card never has 'any' type icons
@@ -775,7 +884,8 @@ export const makeLightsInTheVoidGame = (
     homeHex.celestialBodyToken = token1;
     homeHex.celestialBodyToken2 = token2;
 
-    return {
+    // Build initial game state
+    const initialState: LightsInTheVoidState = {
       shipStatus: {
         location: "HOME",
         energy: 5,
@@ -785,17 +895,26 @@ export const makeLightsInTheVoidGame = (
         numResearchTokens: 0,
         speed: 1,
       },
-      playerItineraryCards: playerItineraryCards,
+      playerItineraryCards: Object.fromEntries(
+        Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), itineraryCards[i]])
+      ),
       detectedStarSystems: Array.from({ length: 5 }, () => decks[1].cards.pop()!),
-      playerPoints: playerPoints,
+      playerPoints: Object.fromEntries(
+        Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), 0])
+      ),
       playedCards: [zone0Card],
       zoneDecks: decks,
       hexBoard: hexes,
       reverseHexBoard: reverseHexes,
       phasePointTotals: [],
-      playerSubIconCollections: playerSubIconCollections,
+      playerSubIconCollections: {},
       researchedCount: {},
     };
+
+    // Award bonus points for Zone 0 card matches (no base points since no one played it)
+    applyCardPoints(zone0Card, "", initialState);
+
+    return initialState;
   },
 
   turn: {
@@ -903,45 +1022,81 @@ export const makeLightsInTheVoidGame = (
       if (G.shipStatus.energy > 1) {
         const currentCoords = currentLocation.cubeCoords;
 
-        // Generate all possible paths up to ship's speed
-        const allPaths = generatePaths(currentCoords, G.shipStatus.speed);
+        // Find highest-value target cards (max points OR research tokens)
+        const highValueTargets = findHighestValueTargets(G);
 
-        // Add partial-speed paths that end on detected systems
-        const partialSpeedReachableSystems = new Set<string>();
-        for (const path of allPaths.filter(p => p.length < G.shipStatus.speed)) {
-          // Calculate endpoint
-          let endpointCoords = currentCoords;
-          for (const dir of path) {
-            endpointCoords = getNeighborCoords(endpointCoords, dir)!;
-          }
+        // Filter out targets we can't reach safely (energy would go to 0)
+        const safeTargets = highValueTargets.filter(card => {
+          const targetCoords = G.hexBoard[card.hexCoordinate].cubeCoords;
+          return canReachSafely(currentCoords, targetCoords, G);
+        });
 
-          // Check if endpoint has a detected system
-          for (const system of G.detectedStarSystems) {
-            const systemCoords = G.hexBoard[system.hexCoordinate].cubeCoords;
-            if (systemCoords.q === endpointCoords.q
-                && systemCoords.r === endpointCoords.r
-                && systemCoords.s === endpointCoords.s) {
-              const coordsKey = `${systemCoords.q},${systemCoords.r},${systemCoords.s}`;
-              partialSpeedReachableSystems.add(coordsKey);
-              // This path ends on a detected system, so it's automatically valid
-              moves.push({ move: 'moveShip', args: path });
-              break; // No need to consider whether other detected systems are located here right now
+        if (safeTargets.length === 0) {
+          // No safe targets, skip moveShip enumeration
+          // (Fall through to other move types like drawCard, collectResources, etc.)
+        } else {
+          // Caveat 1: Check for cards "on the way" to high-value targets (within 2 extra moves)
+          const onTheWayCards: StarSystemCard[] = [];
+          G.detectedStarSystems.forEach(card => {
+            const cardCoords = G.hexBoard[card.hexCoordinate].cubeCoords;
+            // Check if this card is on the way to any safe target
+            const isOnWay = safeTargets.some(target => {
+              const targetCoords = G.hexBoard[target.hexCoordinate].cubeCoords;
+              return isOnTheWay(currentCoords, cardCoords, targetCoords, G.shipStatus.speed);
+            });
+            if (isOnWay && !safeTargets.includes(card)) {
+              onTheWayCards.push(card);
             }
-          }
-        }
+          });
 
-        // Enumerate full-speed paths, ignoring partial-speed reachable systems
-        for (const path of allPaths.filter(p => p.length === G.shipStatus.speed)) {
-          // Calculate endpoint of this path (all paths guaranteed navigable by generatePaths)
-          let endpointCoords = currentCoords;
-          for (const dir of path) {
-            endpointCoords = getNeighborCoords(endpointCoords, dir)!;
-          }
+          // Prioritize on-the-way cards if they exist, otherwise use safe high-value targets
+          const finalTargets = onTheWayCards.length > 0 ? onTheWayCards : safeTargets;
 
-          // Check if path gets closer to systems not reachable with partial speed
-          if (isPathValid(G, currentCoords, endpointCoords, partialSpeedReachableSystems)) {
-            moves.push({ move: 'moveShip', args: path });
-          }
+          // Generate moves toward each final target
+          finalTargets.forEach(targetCard => {
+            const targetCoords = G.hexBoard[targetCard.hexCoordinate].cubeCoords;
+            const distance = getDistance(currentCoords, targetCoords);
+            const actualDistance = Math.min(distance, G.shipStatus.speed);
+
+            const path: Direction[] = [];
+            let currentPos = { ...currentCoords };
+
+            // Greedily build path by picking best direction at each step
+            while (path.length < actualDistance) {
+              let bestDir: Direction | null = null;
+              let bestDist = Infinity;
+
+              for (const [dirName, _] of Object.entries(DIRECTIONS)) {
+                const nextCoords = getNeighborCoords(currentPos, dirName as Direction);
+                if (nextCoords === null) continue;
+
+                const distToTarget = getDistance(nextCoords, targetCoords);
+                if (distToTarget < bestDist) {
+                  bestDist = distToTarget;
+                  bestDir = dirName as Direction;
+                }
+              }
+
+              if (bestDir === null) break; // Should never happen
+              path.push(bestDir);
+              currentPos = getNeighborCoords(currentPos, bestDir)!;
+
+              // Only add if we successfully built a complete path
+              if (path.length === actualDistance) {
+                moves.push({ move: 'moveShip', args: path });
+                return; // Move to next finalTarget
+              }
+            }
+          });
+
+          // Remove duplicate moveShip moves (same path might reach multiple targets)
+          moves = moves.filter((move, index, self) =>
+            index === self.findIndex(m =>
+              'args' in m && 'args' in move &&
+              m.move === 'moveShip' && move.move === 'moveShip' &&
+              JSON.stringify(m.args) === JSON.stringify(move.args)
+            )
+          );
         }
       }
       
