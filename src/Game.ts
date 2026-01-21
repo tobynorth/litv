@@ -46,6 +46,7 @@ const DIRECTIONS = {
 } as const satisfies Record<Direction, CubeCoords>; 
 
 interface LightsInTheVoidState {
+  playerRoleCards: Record<string, RoleCard>;
   playerItineraryCards: Record<string, ItineraryCard>;
   detectedStarSystems: StarSystemCard[];
   shipStatus: ShipStatus;
@@ -98,7 +99,7 @@ type AllowedAnyIconType = CelestialBodyType.Red |
         CelestialBodyType.White |
         CelestialBodyType.Blue;
 
-export type Card = StarSystemCard | ItineraryCard;
+export type Card = StarSystemCard | RoleCard | ItineraryCard;
 
 export type StarSystemCard = {
   title: string;
@@ -111,6 +112,12 @@ export type StarSystemCard = {
 export type ItineraryIcon = {
   name: string;
   subicon?: string;
+}
+
+export type RoleCard = {
+  name: string;
+  affectedAction: string;
+  bonusResourceType?: string;
 }
 
 export type ItineraryCard = {
@@ -854,6 +861,7 @@ function generatePaths(currentCoords: CubeCoords, maxLength: number): Direction[
 
 export const makeLightsInTheVoidGame = (
   decks: ZoneDeck[],
+  roleCards: RoleCard[],
   itineraryCards: ItineraryCard[],
   tokenEffects: TokenEffectsConfig,
   researchTopics: ResearchTopicsConfig,
@@ -914,6 +922,9 @@ export const makeLightsInTheVoidGame = (
         numResearchTokens: 0,
         speed: 1,
       },
+      playerRoleCards: Object.fromEntries(
+        Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), roleCards[i]])
+      ),
       playerItineraryCards: Object.fromEntries(
         Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), itineraryCards[i]])
       ),

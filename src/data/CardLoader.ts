@@ -1,5 +1,6 @@
-import { Card, StarSystemCard, ItineraryCard, ZoneDeck, TokenEffectsConfig, ResearchTopicsConfig } from '../Game';
+import { Card, StarSystemCard, RoleCard, ItineraryCard, ZoneDeck, TokenEffectsConfig, ResearchTopicsConfig } from '../Game';
 import starSystemData from './star_system_cards.json';
+import roleData from './role_cards.json';
 import itineraryData from './itinerary_cards.json';
 import tokenEffectsData from './celestial_body_token_types.json';
 import researchTopicData from './research_topics.json'
@@ -24,7 +25,28 @@ export class CardLoader {
       zoneDeck.cards = this.shuffleArray(zoneDeck.cards) as StarSystemCard[];
     }
 
+    // temporarily put the following cards on top of zone 1: Noquisi, Lalande 21185, Capella, Algol, and Gacrux
+    const specialCardsTitles = ["Noquisi", "Lalande 21185", "Capella", "Algol", "Gacrux"];
+    const specialCards: StarSystemCard[] = [];
+    zoneDecks[1].cards = zoneDecks[1].cards.filter(card => {
+      if (specialCardsTitles.includes(card.title)) {
+        specialCards.push(card);
+        return false;
+      }
+      return true;
+    });
+    // Place them in the desired order on top of the deck
+    specialCards.forEach(card => {
+      zoneDecks[1].cards.push(card);
+    });
+
     return zoneDecks;
+  }
+
+  static async loadRoleCards(numPlayers: number): Promise<RoleCard[]> {
+    let cardData = roleData.cards as RoleCard[];
+    const shuffledCards = this.shuffleArray(cardData);
+    return shuffledCards.slice(0, numPlayers) as RoleCard[];
   }
 
   static async loadItineraryCards(numPlayers: number): Promise<ItineraryCard[]> {

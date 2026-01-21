@@ -1,0 +1,13 @@
+{
+  "cards": [
+    {
+      "name": "Test Role 1",
+      "affectedAction": "moveShip"
+    },
+    {
+      "name": "Test Role 2",
+      "affectedAction": "collectResources",
+      "bonusResourceType": "energy"
+    }
+  ]
+}
