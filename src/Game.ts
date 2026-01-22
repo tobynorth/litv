@@ -412,7 +412,7 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   currHex.numResearchTokens = config.tokenEffects![tokenToPlayKey].numResearchTokens;
 }
 
-export function collectResources({ G }: { G: LightsInTheVoidState }, tokenToCollectFromKey: string) {
+export function collectResources({ G, ctx }: { G: LightsInTheVoidState, ctx: any }, tokenToCollectFromKey: string) {
   const currentHex = G.hexBoard[G.shipStatus.location];
   let key = lookupKey(currentHex.celestialBodyToken!);
   let key2 = "celestialBodyToken2" in currentHex ? lookupKey((currentHex as DoubleTokenHexCell).celestialBodyToken2!) : null;
@@ -430,15 +430,33 @@ export function collectResources({ G }: { G: LightsInTheVoidState }, tokenToColl
     return INVALID_MOVE;
   }
 
+  // Check if player has energy or armor bonuses from role cards
+  const currentPlayerRole = G.playerRoleCards[ctx.currentPlayer];
+  const hasEnergyBonus = currentPlayerRole?.affectedAction === 'collectResources'
+    && currentPlayerRole?.bonusResourceType === 'energy';
+  const hasArmorBonus = currentPlayerRole?.affectedAction === 'collectResources'
+    && currentPlayerRole?.bonusResourceType === 'armor';
+
   // Apply energy & armor effects to ship status
   let status = G.shipStatus;
+
+  let energyIncrease = effects.energyChange;
+  if (hasEnergyBonus && energyIncrease > 0) {
+    energyIncrease += 2;
+  }
+
+  let armorChange = effects.armorChange;
+  if (hasArmorBonus && armorChange !== 0) {
+    armorChange += 1;
+  }
+
   status.energy = Math.min(
     status.maxEnergy,
-    status.energy + effects.energyChange
+    status.energy + energyIncrease
   );
   status.armor = Math.min(
     status.maxArmor,
-    status.armor + effects.armorChange
+    status.armor + armorChange
   );
 
   // collect any research tokens on the hex
@@ -1150,9 +1168,10 @@ export const makeLightsInTheVoidGame = (
         const key = lookupKey(currentLocation.celestialBodyToken);
         if (config.tokenEffects && config.tokenEffects[key]) {
           let effects = config.tokenEffects[key];
+          const hasArmorBonus = currentPlayerRole?.affectedAction === 'collectResources' && currentPlayerRole?.bonusResourceType === 'armor' && effects.armorChange !== 0;
           if (
             (G.shipStatus.armor < G.shipStatus.maxArmor && effects.armorChange > 0)
-            || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange >= 1)
+            || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange + (hasArmorBonus ? 1 : 0) >= 1)
             || effects.numResearchTokens > 0
           ) {
             moves.push({ move: 'collectResources', args: [key] });
