@@ -58,6 +58,8 @@ interface LightsInTheVoidState {
   hexBoard: Record<string, HexCell>;
   reverseHexBoard: Record<string, string>;
   phasePointTotals: number[];
+  currentTurnMoves: number;
+  currentTurnMoveShipCalled: boolean;
 }
 
 export type ZoneDeck = {
@@ -335,9 +337,16 @@ export function moveShip({ G }: { G: LightsInTheVoidState }, ...dirs: Direction[
   // Update the ship location to the new hex
   G.shipStatus.location = newHexKey;
   G.shipStatus.energy -= 1;
+  G.currentTurnMoves += 1;
+  G.currentTurnMoveShipCalled = true;
 };
 
 export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number, cardToDiscard: string | null = null) {
+  // Player with bonus moveShip who already took 3 non-moveShip actions can only take moveShip or pass
+  if (G.currentTurnMoves === 3 && !G.currentTurnMoveShipCalled) {
+    return INVALID_MOVE;
+  }
+
   if (zoneNumber < 1 || zoneNumber > Object.keys(G.zoneDecks).length) {
     return INVALID_MOVE;
   }
@@ -358,9 +367,15 @@ export function drawCard({ G }: { G: LightsInTheVoidState }, zoneNumber: number,
   }
   let drawnCard = zoneDeck.cards.pop()!;
   G.detectedStarSystems.push(drawnCard);
+  G.currentTurnMoves += 1;
 }
 
 export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: string }, cardTitle: string, tokenToPlayKey: string) {
+  // Player with bonus moveShip who already took 3 non-moveShip actions can only take moveShip or pass
+  if (G.currentTurnMoves === 3 && !G.currentTurnMoveShipCalled) {
+    return INVALID_MOVE;
+  }
+
   let cardToPlayIndex = G.detectedStarSystems.findIndex(c => c.title === cardTitle);
   if (
       cardToPlayIndex === -1
@@ -410,9 +425,15 @@ export function playCard({ G, playerID }: { G: LightsInTheVoidState, playerID: s
   let currHex = G.hexBoard[G.shipStatus.location];
   currHex.celestialBodyToken = tokenToPlay;
   currHex.numResearchTokens = config.tokenEffects![tokenToPlayKey].numResearchTokens;
+  G.currentTurnMoves += 1;
 }
 
 export function collectResources({ G, ctx }: { G: LightsInTheVoidState, ctx: any }, tokenToCollectFromKey: string) {
+  // Player with bonus moveShip who already took 3 non-moveShip actions can only take moveShip or pass
+  if (G.currentTurnMoves === 3 && !G.currentTurnMoveShipCalled) {
+    return INVALID_MOVE;
+  }
+
   const currentHex = G.hexBoard[G.shipStatus.location];
   let key = lookupKey(currentHex.celestialBodyToken!);
   let key2 = "celestialBodyToken2" in currentHex ? lookupKey((currentHex as DoubleTokenHexCell).celestialBodyToken2!) : null;
@@ -421,7 +442,7 @@ export function collectResources({ G, ctx }: { G: LightsInTheVoidState, ctx: any
   if (key !== tokenToCollectFromKey && key2 !== tokenToCollectFromKey) {
     return INVALID_MOVE;
   }
- 
+
 
   // Look up effects in config
   const effects = config.tokenEffects![tokenToCollectFromKey];
@@ -462,9 +483,15 @@ export function collectResources({ G, ctx }: { G: LightsInTheVoidState, ctx: any
   // collect any research tokens on the hex
   status.numResearchTokens += G.hexBoard[status.location].numResearchTokens;
   G.hexBoard[status.location].numResearchTokens = 0;
+  G.currentTurnMoves += 1;
 }
 
 export function doResearch({ G }: { G: LightsInTheVoidState }, researchTopicName: string) {
+  // Player with bonus moveShip who already took 3 non-moveShip actions can only take moveShip or pass
+  if (G.currentTurnMoves === 3 && !G.currentTurnMoveShipCalled) {
+    return INVALID_MOVE;
+  }
+
   let researchTopic = config.researchTopics?.[researchTopicName];
   if (!researchTopic) {
     return INVALID_MOVE;
@@ -491,7 +518,12 @@ export function doResearch({ G }: { G: LightsInTheVoidState }, researchTopicName
   status.maxArmor += researchTopic.maxArmorChange;
   status.speed += researchTopic.speedChange;
 
-  G.researchedCount[researchTopicName]++; 
+  G.researchedCount[researchTopicName]++;
+  G.currentTurnMoves += 1;
+}
+
+export function pass({ G }: { G: LightsInTheVoidState }) {
+  // Pass/noop action. Currently only used for ending a pilot's turn after 3 actions if they chose not to moveShip at all
 }
 
 function lookupKey(token: CelestialBodyToken): string {
@@ -957,6 +989,8 @@ export const makeLightsInTheVoidGame = (
       phasePointTotals: [],
       playerSubIconCollections: {},
       researchedCount: {},
+      currentTurnMoves: 0,
+      currentTurnMoveShipCalled: false,
     };
 
     // Award bonus points for Zone 0 card matches (no base points since no one played it)
@@ -967,7 +1001,20 @@ export const makeLightsInTheVoidGame = (
 
   turn: {
     minMoves: 1,
-    maxMoves: 3,
+    maxMoves: 4,
+    onBegin: ({ G }) => {
+      G.currentTurnMoves = 0;
+      G.currentTurnMoveShipCalled = false;
+    },
+    onMove: ({ G, ctx, events }) => {
+      // Check if turn should end based on role card
+      const currentPlayerRole = G.playerRoleCards[ctx.currentPlayer];
+      const hasBonusMoveShipAction = currentPlayerRole?.affectedAction === 'moveShip';
+      const maxMoves = hasBonusMoveShipAction ? 4 : 3;
+      if (G.currentTurnMoves >= maxMoves) {
+        events.endTurn();
+      }
+    },
     onEnd: ({ G, ctx, events }) => {
       // Check if round is complete
       const currRoundCompleted = ctx.turn % ctx.numPlayers === 0;
@@ -1008,6 +1055,7 @@ export const makeLightsInTheVoidGame = (
     playCard,
     collectResources,
     doResearch,
+    pass,
   },
 
   endIf: ({ G, ctx }) => {
@@ -1019,49 +1067,58 @@ export const makeLightsInTheVoidGame = (
   },
 
   ai: {
-    enumerate: (G) => {
+    enumerate: (G, ctx) => {
       let moves: AiEnumerate = [];
 
+      // Check if current player has reached their action limit
+      const currentPlayerRole = G.playerRoleCards[ctx.currentPlayer];
+      const hasBonusMoveShip = currentPlayerRole?.affectedAction === 'moveShip';
+
+      // Check if player has already taken 3 non-moveShip actions -- if so, they must moveShip or pass
+      const mustMoveShipOrPass = hasBonusMoveShip && G.currentTurnMoves >= 3 && !G.currentTurnMoveShipCalled;
+
       // 1. Enumerate playCard moves (highest priority)
-      G.detectedStarSystems.forEach((card) => {
-        if (G.shipStatus.location === card.hexCoordinate) {
-          card.celestialBodyIcons.forEach((icon) => {
-            if (icon.type === CelestialBodyType.Any) {
-              const concreteTypes: AllowedAnyIconType[] = [
-                CelestialBodyType.Red,
-                CelestialBodyType.Orange,
-                CelestialBodyType.Yellow,
-                CelestialBodyType.White,
-                CelestialBodyType.Blue,
-              ];
-              for (const concreteType of concreteTypes) {
-                let token: CelestialBodyToken = { type: concreteType, size: CelestialBodySize.Normal };
+      if (!mustMoveShipOrPass) {
+        G.detectedStarSystems.forEach((card) => {
+          if (G.shipStatus.location === card.hexCoordinate) {
+            card.celestialBodyIcons.forEach((icon) => {
+              if (icon.type === CelestialBodyType.Any) {
+                const concreteTypes: AllowedAnyIconType[] = [
+                  CelestialBodyType.Red,
+                  CelestialBodyType.Orange,
+                  CelestialBodyType.Yellow,
+                  CelestialBodyType.White,
+                  CelestialBodyType.Blue,
+                ];
+                for (const concreteType of concreteTypes) {
+                  let token: CelestialBodyToken = { type: concreteType, size: CelestialBodySize.Normal };
+                  moves.push({ move: 'playCard', args: [card.title, lookupKey(token)] } );
+                }
+              } else {
+                let token: CelestialBodyToken;
+                if ("size" in icon) {
+                  token = { type: icon.type, size: icon.size };
+                } else {
+                  token = { type: icon.type };
+                }
                 moves.push({ move: 'playCard', args: [card.title, lookupKey(token)] } );
               }
-            } else {
-              let token: CelestialBodyToken;
-              if ("size" in icon) {
-                token = { type: icon.type, size: icon.size };
-              } else {
-                token = { type: icon.type };
-              }
-              moves.push({ move: 'playCard', args: [card.title, lookupKey(token)] } );
-            }
-          });
+            });
+          }
+        });
+
+        // remove duplicate playCard moves (from 'any' icon handling)
+        moves = moves.filter((move, index, self) =>
+          index === self.findIndex(m =>
+            'args' in m && 'args' in move &&
+            m.args![0] === move.args![0] && m.args![1] === move.args![1]
+          )
+        );
+
+        // If a card can be played right now, that's objectively better than vitually anything else, so don't consider any other move
+        if (moves.length > 0) {
+          return moves;
         }
-      });
-
-      // remove duplicate playCard moves (from 'any' icon handling)
-      moves = moves.filter((move, index, self) =>
-        index === self.findIndex(m =>
-          'args' in m && 'args' in move &&
-          m.args![0] === move.args![0] && m.args![1] === move.args![1]
-        )
-      );
-
-      // If a card can be played right now, that's objectively better than vitually anything else, so don't consider any other move
-      if (moves.length > 0) {
-        return moves;
       }
 
       // 2. Enumerate moveShip moves
@@ -1147,62 +1204,72 @@ export const makeLightsInTheVoidGame = (
           );
         }
       }
-      
+
 
       // 3. Enumerate drawCard moves
-      Object.keys(G.zoneDecks).forEach(zoneNumStr => {
-        const zoneNum = parseInt(zoneNumStr);
-        if (!G.zoneDecks[zoneNum].isLocked && G.zoneDecks[zoneNum].cards.length > 0) {
-          if (G.detectedStarSystems.length < 5) {
-            moves.push({ move: 'drawCard', args: [zoneNum] });
-          } else {
-            // If there are already 5 detected star systems, must specify a card to discard
-            const minValueTarget = findLowestValueTarget(G);
-            moves.push({ move: 'drawCard', args: [zoneNum, minValueTarget!.title] });
+      if (!mustMoveShipOrPass) {
+        Object.keys(G.zoneDecks).forEach(zoneNumStr => {
+          const zoneNum = parseInt(zoneNumStr);
+          if (!G.zoneDecks[zoneNum].isLocked && G.zoneDecks[zoneNum].cards.length > 0) {
+            if (G.detectedStarSystems.length < 5) {
+              moves.push({ move: 'drawCard', args: [zoneNum] });
+            } else {
+              // If there are already 5 detected star systems, must specify a card to discard
+              const minValueTarget = findLowestValueTarget(G);
+              moves.push({ move: 'drawCard', args: [zoneNum, minValueTarget!.title] });
+            }
           }
-        }
-      });
-
-      // 4. Enumerate collectResources moves
-      if (currentLocation.celestialBodyToken) {
-        const key = lookupKey(currentLocation.celestialBodyToken);
-        if (config.tokenEffects && config.tokenEffects[key]) {
-          let effects = config.tokenEffects[key];
-          const hasArmorBonus = currentPlayerRole?.affectedAction === 'collectResources' && currentPlayerRole?.bonusResourceType === 'armor' && effects.armorChange !== 0;
-          if (
-            (G.shipStatus.armor < G.shipStatus.maxArmor && effects.armorChange > 0)
-            || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange + (hasArmorBonus ? 1 : 0) >= 1)
-            || effects.numResearchTokens > 0
-          ) {
-            moves.push({ move: 'collectResources', args: [key] });
-          }
-        }
+        });
       }
 
-      if ("celestialBodyToken2" in currentLocation) {
-        const doubleHex = currentLocation as DoubleTokenHexCell;
-        const key = lookupKey(doubleHex.celestialBodyToken2!);
-        if (config.tokenEffects && config.tokenEffects[key]) {
-          let effects = config.tokenEffects[key];
-          if (
-            (G.shipStatus.armor < G.shipStatus.maxArmor && effects.armorChange > 0)
-            || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange >= 1)
-            || effects.numResearchTokens > 0
-          ) {
-            moves.push({ move: 'collectResources', args: [key] });
+      // 4. Enumerate collectResources moves
+      if (!mustMoveShipOrPass) {
+        if (currentLocation.celestialBodyToken) {
+          const key = lookupKey(currentLocation.celestialBodyToken);
+          if (config.tokenEffects && config.tokenEffects[key]) {
+            let effects = config.tokenEffects[key];
+            const hasArmorBonus = currentPlayerRole?.affectedAction === 'collectResources' && currentPlayerRole?.bonusResourceType === 'armor' && effects.armorChange !== 0;
+            if (
+              (G.shipStatus.armor < G.shipStatus.maxArmor && effects.armorChange > 0)
+              || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange + (hasArmorBonus ? 1 : 0) >= 1)
+              || effects.numResearchTokens > 0
+            ) {
+              moves.push({ move: 'collectResources', args: [key] });
+            }
+          }
+        }
+
+        if ("celestialBodyToken2" in currentLocation) {
+          const doubleHex = currentLocation as DoubleTokenHexCell;
+          const key = lookupKey(doubleHex.celestialBodyToken2!);
+          if (config.tokenEffects && config.tokenEffects[key]) {
+            let effects = config.tokenEffects[key];
+            if (
+              (G.shipStatus.armor < G.shipStatus.maxArmor && effects.armorChange > 0)
+              || (G.shipStatus.energy < G.shipStatus.maxEnergy && effects.energyChange > 0 && G.shipStatus.armor + effects.armorChange >= 1)
+              || effects.numResearchTokens > 0
+            ) {
+              moves.push({ move: 'collectResources', args: [key] });
+            }
           }
         }
       }
 
       // 5. Enumerate doResearch moves
-      Object.keys(config.researchTopics!).forEach(topicName => {
-        const topic = config.researchTopics![topicName];
-        const costIncrease = topic.costIncrease ? G.researchedCount[topicName] * topic.costIncrease : 0;
-        const actualCost = topic.cost + costIncrease;
-        if (G.shipStatus.numResearchTokens >= actualCost && (!topic.unlocksDeck || G.zoneDecks.find(d => d.isLocked))) {
-          moves.push({ move: 'doResearch', args: [topicName] });
-        }
-      });
+      if (!mustMoveShipOrPass) {
+        Object.keys(config.researchTopics!).forEach(topicName => {
+          const topic = config.researchTopics![topicName];
+          const costIncrease = topic.costIncrease ? G.researchedCount[topicName] * topic.costIncrease : 0;
+          const actualCost = topic.cost + costIncrease;
+          if (G.shipStatus.numResearchTokens >= actualCost && (!topic.unlocksDeck || G.zoneDecks.find(d => d.isLocked))) {
+            moves.push({ move: 'doResearch', args: [topicName] });
+          }
+        });
+      }
+
+      if (mustMoveShipOrPass) {
+        moves.push({ move: 'pass', args: [] });
+      }
 
       return moves;
     },
