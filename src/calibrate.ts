@@ -76,9 +76,10 @@ async function calibrateDifficulty(
   console.log(`\nCalibrating ${numPlayers}P, ${numPhases} phase(s), ${winThreshold} win threshold...`);
 
   // Load initial card data
-  const [baseStarSystemCards, itineraryCards, tokenEffects, researchTopics] =
+  const [baseStarSystemCards, roleCards, itineraryCards, tokenEffects, researchTopics] =
     await Promise.all([
       CardLoader.loadStarSystemCards(),
+      CardLoader.loadRoleCards(numPlayers),
       CardLoader.loadItineraryCards(numPlayers),
       CardLoader.loadTokenEffects(),
       CardLoader.loadResearchTopics(),
@@ -93,6 +94,7 @@ async function calibrateDifficulty(
     // Create game instance
     const game = makeLightsInTheVoidGame(
       starSystemCards,
+      roleCards,
       itineraryCards,
       tokenEffects,
       researchTopics,
