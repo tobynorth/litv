@@ -970,7 +970,7 @@ export const makeLightsInTheVoidGame = (
         armor: 5,
         maxArmor: 5,
         numResearchTokens: 0,
-        speed: 1,
+        speed: 2,
       },
       playerRoleCards: Object.fromEntries(
         Array.from({ length: ctx.numPlayers }, (_, i) => [String(i), roleCards[i]])
