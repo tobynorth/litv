@@ -4,6 +4,9 @@ import { DeterminizedMCTSBot } from './ai/DeterminizedMCTSBot';
 import { makeLightsInTheVoidGame } from './Game';
 import { CardLoader } from './data/CardLoader';
 import * as fs from 'fs';
+import { Worker } from 'worker_threads';
+import * as os from 'os';
+import * as path from 'path';
 
 interface CalibrationConfig {
   numPlayers: number;
@@ -12,6 +15,8 @@ interface CalibrationConfig {
   numTrials?: number;
   mctsIterations?: number;
   playoutDepth?: number;
+  parallelMode?: boolean;
+  workerPoolSize?: number;
 }
 
 interface CalibrationResults {
@@ -39,6 +44,22 @@ interface CalibrationResults {
   };
 }
 
+interface WorkerTask {
+  trialNumber: number;
+  numPlayers: number;
+  numPhases: number;
+  winThreshold: number;
+  mctsIterations: number;
+  playoutDepth: number;
+  reshuffleEveryN: number;
+}
+
+interface WorkerResult {
+  trialNumber: number;
+  score: number;
+  error?: string;
+}
+
 // Helper: Calculate statistics
 function calculateStats(scores: number[]) {
   const sorted = [...scores].sort((a, b) => a - b);
@@ -61,7 +82,7 @@ function calculateStats(scores: number[]) {
   };
 }
 
-async function calibrateDifficulty(
+async function calibrateDifficultyParallel(
   config: CalibrationConfig
 ): Promise<CalibrationResults> {
   const {
@@ -70,7 +91,160 @@ async function calibrateDifficulty(
     winThreshold,
     numTrials = 1,
     mctsIterations = 500,
-    playoutDepth = 30,
+    playoutDepth = 50,
+    workerPoolSize = os.cpus().length,
+  } = config;
+
+  console.log(`\nCalibrating (PARALLEL) ${numPlayers}P, ${numPhases} phase(s), ${winThreshold} win threshold...`);
+  console.log(`  Using ${Math.min(numTrials, workerPoolSize)} worker threads`);
+
+  const workerPath = path.join(__dirname, 'calibrate-worker.ts');
+  console.log(`  Worker path: ${workerPath}`);
+  const workers: Worker[] = [];
+  const taskQueue = Array.from({ length: numTrials }, (_, i) => i + 1);
+  const results: WorkerResult[] = [];
+  let completedCount = 0;
+
+  try {
+    // Spawn workers
+    const numWorkers = Math.min(numTrials, workerPoolSize);
+    for (let i = 0; i < numWorkers; i++) {
+      const worker = new Worker(workerPath, {
+        execArgv: ['--require', 'tsx/cjs'],
+        stdout: true,
+        stderr: true,
+      });
+
+      // Pipe worker output to main process
+      worker.stdout?.on('data', (data) => {
+        process.stdout.write(data);
+      });
+      worker.stderr?.on('data', (data) => {
+        process.stderr.write(data);
+      });
+
+      workers.push(worker);
+
+      worker.on('message', (message: any) => {
+        // Handle progress messages
+        if (message.type === 'progress') {
+          console.log(`  [Trial ${message.trialNumber}] ${message.message}`);
+          return;
+        }
+
+        // Handle result messages
+        const result = message as WorkerResult;
+        results.push(result);
+        completedCount++;
+
+        if (result.error) {
+          console.log(`  Trial ${result.trialNumber}: ERROR - ${result.error}`);
+        } else {
+          console.log(`  Trial ${result.trialNumber}: score ${result.score} (${completedCount}/${numTrials})`);
+        }
+
+        // Assign next trial if queue not empty
+        const nextTrial = taskQueue.shift();
+        if (nextTrial !== undefined) {
+          const task: WorkerTask = {
+            trialNumber: nextTrial,
+            numPlayers,
+            numPhases,
+            winThreshold,
+            mctsIterations,
+            playoutDepth,
+            reshuffleEveryN: 20,
+          };
+          worker.postMessage(task);
+        }
+      });
+
+      worker.on('error', (error) => {
+        console.error(`  Worker error: ${error.message}`);
+      });
+
+      // Start first trial for this worker
+      const firstTrial = taskQueue.shift();
+      if (firstTrial !== undefined) {
+        const task: WorkerTask = {
+          trialNumber: firstTrial,
+          numPlayers,
+          numPhases,
+          winThreshold,
+          mctsIterations,
+          playoutDepth,
+          reshuffleEveryN: 20,
+        };
+        console.log(`  Assigning trial ${firstTrial} to worker ${i + 1}`);
+        worker.postMessage(task);
+      }
+    }
+
+    // Wait for all trials to complete
+    await new Promise<void>((resolve) => {
+      const checkComplete = setInterval(() => {
+        if (completedCount >= numTrials) {
+          clearInterval(checkComplete);
+          resolve();
+        }
+      }, 100);
+    });
+
+    // Filter out failed trials
+    const successfulResults = results.filter(r => !r.error);
+    const failedResults = results.filter(r => r.error);
+
+    if (failedResults.length > 0) {
+      console.log(`\n⚠️  ${failedResults.length} trial(s) failed`);
+    }
+
+    // Extract scores from successful trials
+    const scores = successfulResults.map(r => r.score);
+
+    if (scores.length === 0) {
+      throw new Error('All trials failed - cannot calculate statistics');
+    }
+
+    // Calculate statistics
+    const stats = calculateStats(scores);
+    const wins = scores.filter(score => score >= winThreshold).length;
+    const winRate = (wins / scores.length) * 100;
+
+    return {
+      numPlayers,
+      numPhases,
+      winThreshold,
+      scores,
+      winRate,
+      stats,
+      thresholds: {
+        easy: stats.p25,
+        medium: stats.p50,
+        hard: stats.p75,
+        expert: stats.p90,
+      },
+    };
+  } finally {
+    // Cleanup: terminate all workers
+    await Promise.all(workers.map(w => w.terminate()));
+  }
+}
+
+async function calibrateDifficulty(
+  config: CalibrationConfig
+): Promise<CalibrationResults> {
+  // Route to parallel implementation if enabled
+  if (config.parallelMode) {
+    return calibrateDifficultyParallel(config);
+  }
+
+  const {
+    numPlayers,
+    numPhases,
+    winThreshold,
+    numTrials = 1,
+    mctsIterations = 500,
+    playoutDepth = 50,
   } = config;
 
   console.log(`\nCalibrating ${numPlayers}P, ${numPhases} phase(s), ${winThreshold} win threshold...`);
