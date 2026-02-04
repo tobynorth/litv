@@ -3,6 +3,9 @@ import cors from 'cors';
 import { GameSession } from './GameSession';
 import { createSimplifiedGame } from './SimplifiedGame';
 import { ActionEncoder } from './ActionEncoder';
+import { StateEncoder } from './StateEncoder';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const PORT = 3001;
 
@@ -10,9 +13,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Global game session and action encoder (single session for POC)
+// Load token effects configuration
+const tokenEffectsPath = path.join(__dirname, '..', 'data', 'celestial_body_token_types.json');
+const tokenEffectsConfig = JSON.parse(fs.readFileSync(tokenEffectsPath, 'utf-8'));
+
+// Global game session and encoders (single session for POC)
 let gameSession: GameSession | null = null;
 let actionEncoder: ActionEncoder | null = null;
+let stateEncoder: StateEncoder | null = null;
 
 /**
  * POST /reset
@@ -43,15 +51,17 @@ app.post('/reset', async (req: Request, res: Response) => {
       return;
     }
 
-    // Initialize action encoder with hex board
+    // Initialize encoders
     actionEncoder = new ActionEncoder(state.G.hexBoard);
+    stateEncoder = new StateEncoder(tokenEffectsConfig);
 
-    // Get valid actions for initial state
+    // Get valid actions and encoded state
     const validActions = actionEncoder.getValidActions(state);
+    const encodedState = stateEncoder.encodeState(state);
 
     // Return initial state
     res.json({
-      state: Array(128).fill(0), // Placeholder: Phase 3 will implement state encoding
+      state: encodedState,
       validActions,
       done: false,
     });
@@ -87,6 +97,11 @@ app.post('/step', async (req: Request, res: Response) => {
 
     if (!actionEncoder) {
       res.status(400).json({ error: 'Action encoder not initialized. Call /reset first.' });
+      return;
+    }
+
+    if (!stateEncoder) {
+      res.status(400).json({ error: 'State encoder not initialized. Call /reset first.' });
       return;
     }
 
@@ -135,11 +150,12 @@ app.post('/step', async (req: Request, res: Response) => {
       finalReward -= 50; // Death penalty
     }
 
-    // Get valid actions for new state
+    // Get valid actions and encoded state for new state
     const validActions = done ? [] : actionEncoder.getValidActions(stateAfter);
+    const encodedState = stateEncoder.encodeState(stateAfter);
 
     res.json({
-      state: Array(128).fill(0),  // Placeholder: Phase 3 will implement state encoding
+      state: encodedState,
       reward: finalReward,
       done,
       validActions,
@@ -174,15 +190,21 @@ app.get('/state', (req: Request, res: Response) => {
       return;
     }
 
+    if (!stateEncoder) {
+      res.status(400).json({ error: 'State encoder not initialized. Call /reset first.' });
+      return;
+    }
+
     const done = gameSession.isDone();
     const info = gameSession.getInfo();
     const rawState = gameSession.getState();
 
-    // Get valid actions
+    // Get valid actions and encoded state
     const validActions = done ? [] : actionEncoder.getValidActions(rawState);
+    const encodedState = stateEncoder.encodeState(rawState);
 
     res.json({
-      state: Array(128).fill(0),  // Placeholder: Phase 3 will implement state encoding
+      state: encodedState,
       validActions,
       done,
       info,

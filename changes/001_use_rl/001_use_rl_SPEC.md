@@ -156,17 +156,17 @@ Use stable hex ordering (sort by key alphabetically) to ensure action IDs are co
 
 **Tasks:**
 
-- [ ] Create `src/server/StateEncoder.ts` with StateEncoder class
-- [ ] Define feature layout (document indices in comments):
-  - Global: round, actions_this_turn, energy, armor, ship_position (q,r,s), points (7 features)
+- [x] Create `src/server/StateEncoder.ts` with StateEncoder class
+- [x] Define feature layout (document indices in comments):
+  - Global: round, actions_this_turn, energy, armor, ship_position (q,r,s), points (8 features)
   - Hand cards: 5 slots × 10 features (exists, hex q/r/s, distance, base_points, token_type_0-3) (50 features)
-  - Board tokens: distance to nearest of each token type (22 types)
+  - Board tokens: distance to nearest of each token type (24 types)
   - Current hex: token presence and effects
   - Padding to 128 features
-- [ ] Implement `encodeState(state: GameState): number[]`
-- [ ] Normalize all features to [0,1] or [-1,1] range
-- [ ] Handle edge cases: empty hand slots, no tokens on board
-- [ ] Integrate StateEncoder into server endpoints
+- [x] Implement `encodeState(state: GameState): number[]`
+- [x] Normalize all features to [0,1] or [-1,1] range
+- [x] Handle edge cases: empty hand slots, no tokens on board
+- [x] Integrate StateEncoder into server endpoints
 
 **Feature Vector Layout (128 features):**
 ```
@@ -196,11 +196,11 @@ This lets the agent know which playCard(slot, token_option) actions are valid.
 
 **Verification:**
 
-- [ ] `encodeState()` always returns exactly 128 floats
-- [ ] All values in range [-1, 1]
-- [ ] Initial state encodes without errors
-- [ ] State changes appropriately after actions (energy decreases after moveShip, etc.)
-- [ ] Same game state always produces same encoding
+- [x] `encodeState()` always returns exactly 128 floats
+- [x] All values in range [-1, 1]
+- [x] Initial state encodes without errors
+- [x] State changes appropriately after actions (energy decreases after moveShip, etc.)
+- [x] Same game state always produces same encoding
 
 **Commit:** `[001][P3] Feature: Add state encoding system for RL`
 
@@ -210,6 +210,11 @@ Normalization ranges:
 - Coordinates: q,r,s each in [-7, 7] → normalize by /7
 - Energy/armor: [0, max] → normalize by /max
 - Distances: [0, 14] → normalize by /14 (max board distance)
+
+**Implementation notes:**
+- Actual feature layout: [0-7] global (8 features), [8-57] hand (50 features), [58-81] tokens (24 features), [82-85] current hex (4 features), [86-127] padding (42 features)
+- Token type count corrected from 22 to 24 (actual count from celestial_body_token_types.json)
+- Global features count corrected from 7 to 8 (q, r, s are separate features)
 
 ---
 
