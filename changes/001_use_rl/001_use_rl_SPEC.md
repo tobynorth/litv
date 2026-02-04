@@ -90,18 +90,18 @@ Key files to reference:
 
 **Tasks:**
 
-- [ ] Create `src/server/ActionEncoder.ts` with ActionEncoder class
-- [ ] Define static action space (~198 actions total):
+- [x] Create `src/server/ActionEncoder.ts` with ActionEncoder class
+- [x] Define static action space (~198 actions total):
   - moveShip to each hex (indexed 0-168 by hex key, masked by distance)
   - playCard for each hand slot × token slot combination (20)
   - drawCard (with optional discard slot if hand full) (6)
   - collectResources for each token slot at current hex (2)
   - pass (always available) (1)
-- [ ] Implement `encodeAction(move: string, args: any[]): number`
-- [ ] Implement `decodeAction(actionId: number, state: GameState): {move, args}`
-- [ ] Implement `getValidActionMask(state: GameState): boolean[]`
-- [ ] Implement exhaustive action enumeration (all legal moves, not heuristic-filtered)
-- [ ] Integrate ActionEncoder into server endpoints
+- [x] Implement `encodeAction(move: string, args: any[]): number`
+- [x] Implement `decodeAction(actionId: number, state: GameState): {move, args}`
+- [x] Implement `getValidActionMask(state: GameState): boolean[]`
+- [x] Implement exhaustive action enumeration (all legal moves, not heuristic-filtered)
+- [x] Integrate ActionEncoder into server endpoints
 
 **Action Space Layout (example):**
 ```
@@ -135,12 +135,12 @@ playCard actions map to (hand_slot, token_slot) tuples, not specific cards/token
 
 **Verification:**
 
-- [ ] Every valid move at any state encodes to unique integer
-- [ ] Every encoded integer decodes back to same move + args
-- [ ] Action mask has exactly `actionSpaceSize` elements
-- [ ] Action mask[i] = true IFF action i is legal in current state
-- [ ] `/reset` and `/step` return correct `validActions` array
-- [ ] An integer ID for "moveShip to X hex" that is encoded and decoded returns the original ID for all reachable positions, where "encode" means convert into a sequence of directions that Game.ts/moveShip can take as input, and "decode" means do the reverse
+- [x] Every valid move at any state encodes to unique integer
+- [x] Every encoded integer decodes back to same move + args
+- [x] Action mask has exactly `actionSpaceSize` elements (198)
+- [x] Action mask[i] = true IFF action i is legal in current state
+- [x] `/reset` and `/step` return correct `validActions` array
+- [x] An integer ID for "moveShip to X hex" that is encoded and decoded returns the original ID for all reachable positions, where "encode" means convert into a sequence of directions that Game.ts/moveShip can take as input, and "decode" means do the reverse
 
 **Commit:** `[001][P2] Feature: Add action encoding system for RL`
 

@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import { GameSession } from './GameSession';
 import { createSimplifiedGame } from './SimplifiedGame';
+import { ActionEncoder } from './ActionEncoder';
 
 const PORT = 3001;
 
@@ -9,8 +10,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Global game session (single session for POC)
+// Global game session and action encoder (single session for POC)
 let gameSession: GameSession | null = null;
+let actionEncoder: ActionEncoder | null = null;
 
 /**
  * POST /reset
@@ -41,10 +43,16 @@ app.post('/reset', async (req: Request, res: Response) => {
       return;
     }
 
-    // Return initial state (placeholder encodings for now)
+    // Initialize action encoder with hex board
+    actionEncoder = new ActionEncoder(state.G.hexBoard);
+
+    // Get valid actions for initial state
+    const validActions = actionEncoder.getValidActions(state);
+
+    // Return initial state
     res.json({
       state: Array(128).fill(0), // Placeholder: Phase 3 will implement state encoding
-      validActions: [197],        // Placeholder: Phase 2 will implement action enumeration (197 = pass)
+      validActions,
       done: false,
     });
   } catch (error: any) {
@@ -77,6 +85,11 @@ app.post('/step', async (req: Request, res: Response) => {
       return;
     }
 
+    if (!actionEncoder) {
+      res.status(400).json({ error: 'Action encoder not initialized. Call /reset first.' });
+      return;
+    }
+
     const { action } = req.body;
     if (typeof action !== 'number') {
       res.status(400).json({ error: 'action must be a number' });
@@ -84,28 +97,33 @@ app.post('/step', async (req: Request, res: Response) => {
     }
 
     // Get state before action
-    const prevReward = gameSession.getReward();
-
-    // Execute action (placeholder: always pass for now)
-    // Phase 2 will decode action ID to actual move + args
-    let success = false;
-    if (action === 197) {
-      // Action 197 = pass
-      success = gameSession.step('pass', []);
-    } else {
-      // Invalid action for now (Phase 2 will implement full decoding)
-      res.status(400).json({
-        error: `Invalid action: ${action}. Only action 197 (pass) is supported in Phase 1.`
-      });
+    const stateBefore = gameSession.getState();
+    if (!stateBefore) {
+      res.status(500).json({ error: 'Failed to get game state' });
       return;
     }
 
+    const prevReward = gameSession.getReward();
+
+    // Decode action ID to move + args
+    let decoded;
+    try {
+      decoded = actionEncoder.decodeAction(action, stateBefore);
+    } catch (error: any) {
+      res.status(400).json({ error: `Invalid action: ${error.message}` });
+      return;
+    }
+
+    // Execute move
+    const success = gameSession.step(decoded.move, decoded.args);
+
     if (!success) {
-      res.status(400).json({ error: 'Invalid move' });
+      res.status(400).json({ error: 'Invalid move (game rejected it)' });
       return;
     }
 
     // Get state after action
+    const stateAfter = gameSession.getState();
     const done = gameSession.isDone();
     const newReward = gameSession.getReward();
     const reward = newReward - prevReward; // Reward is change in score
@@ -117,11 +135,14 @@ app.post('/step', async (req: Request, res: Response) => {
       finalReward -= 50; // Death penalty
     }
 
+    // Get valid actions for new state
+    const validActions = done ? [] : actionEncoder.getValidActions(stateAfter);
+
     res.json({
       state: Array(128).fill(0),  // Placeholder: Phase 3 will implement state encoding
       reward: finalReward,
       done,
-      validActions: done ? [] : [197], // Placeholder: Phase 2 will implement action enumeration
+      validActions,
       info,
     });
   } catch (error: any) {
@@ -148,13 +169,21 @@ app.get('/state', (req: Request, res: Response) => {
       return;
     }
 
+    if (!actionEncoder) {
+      res.status(400).json({ error: 'Action encoder not initialized. Call /reset first.' });
+      return;
+    }
+
     const done = gameSession.isDone();
     const info = gameSession.getInfo();
     const rawState = gameSession.getState();
 
+    // Get valid actions
+    const validActions = done ? [] : actionEncoder.getValidActions(rawState);
+
     res.json({
       state: Array(128).fill(0),  // Placeholder: Phase 3 will implement state encoding
-      validActions: done ? [] : [197], // Placeholder: Phase 2 will implement action enumeration
+      validActions,
       done,
       info,
       rawState, // Include raw boardgame.io state for debugging
