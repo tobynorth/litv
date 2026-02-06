@@ -988,7 +988,7 @@ export const makeLightsInTheVoidGame = (
       reverseHexBoard: reverseHexes,
       phasePointTotals: [],
       playerSubIconCollections: {},
-      researchedCount: {},
+      researchedCount: {"Upgrade Sensors": 0},
       currentTurnMoves: 0,
       currentTurnMoveShipCalled: false,
     };
