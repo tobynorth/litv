@@ -15,7 +15,7 @@ export class CardLoader {
     cardData.forEach(card => {
       const zone = card.zoneNumber;
       if (!zoneDecks[zone]) {
-        zoneDecks[zone] = {"cards": [], "isLocked": zone !== 1};
+        zoneDecks[zone] = {"cards": [], "isLocked": zone > 1};
       }
       zoneDecks[zone].cards.push(card);
     });
