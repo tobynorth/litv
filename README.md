@@ -1,4 +1,4 @@
-# litv
+# lights-in-the-void
 
 Automated playtesting engine for an original board game about space exploration. Implements the full game headlessly with [boardgame.io](https://boardgame.io/), and runs parallel simulated games using determinized Monte Carlo Tree Search to calibrate difficulty.
 
