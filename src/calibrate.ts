@@ -384,3 +384,8 @@ export async function runFullCalibration() {
 
   return allResults;
 }
+
+// Run calibration if this file is executed directly
+if (require.main === module) {
+  runFullCalibration().catch(console.error);
+}
