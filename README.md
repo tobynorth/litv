@@ -6,8 +6,7 @@ Automated playtesting engine for an original board game about space exploration.
 
 <img width="1500" height="842" alt="Lights in the Void: Coronal Loop" src="https://github.com/user-attachments/assets/0a6e5b57-dbd9-4a8e-874d-258f9af045b4" />
 
-My wife and I are designing a physical board game, tentatively titled Lights in the Void: Coronal
-Loop. Players work together to navigate a ship across the Milky Way, drawing from 200 unique cards representing real-life stars, planets, and other celestial bodies, and mapping them on the board as they go. This repo is currently a headless prototype of that game, built exclusively for automated playtesting.
+My wife and I are designing a physical board game, tentatively titled Lights in the Void: Coronal Loop. Players work together to navigate a ship across the Milky Way, drawing from 200 unique cards representing real-life stars, planets, and other celestial bodies, and mapping them on the board as they go. This repo is currently a headless prototype of that game, built exclusively for automated playtesting.
 
 ## Status
 
@@ -18,7 +17,7 @@ Further down the road, another major potential improvement is creating a GUI to 
 ## Technical Highlights
 
 - **MCTS AI** using custom node selection heuristics and handling hidden information through determinization sampling, inspired by [this research paper](https://studenttheses.uu.nl/bitstream/handle/20.500.12932/37736/Thesis_draft.pdf).
-- **Parallel calibration tooling** using Node.js worker threads to run difficulty calibration simulations across multiple iterations
+- **Parallel calibration tooling** using Node.js worker threads to run multiple game simulations on different CPU cores
 - **Hexagonal grid system** with two-way mapping between [cube coordinates](https://www.redblobgames.com/grids/hexagons/#coordinates-cube) and human-friendly coordinates
 
 ## Tech Stack
@@ -56,7 +55,7 @@ src/
 ├── Game.ts                      # Core game state and moves (boardgame.io)
 ├── App.ts                       # Client setup
 ├── ai/
-│   └── DeterminizedMCTSBot.ts  # MCTS AI with determinization
+│   └── DeterminizedMCTSBot.ts  # Subclass of boardgame.io MCTSBot that adds determinization of card decks
 ├── data/
 │   └── CardLoader.ts           # Card data loading and deck management
 ├── calibrate.ts                # Parallel calibration script entry point
