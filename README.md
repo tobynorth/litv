@@ -4,6 +4,8 @@ Automated playtesting engine for an original board game about space exploration.
 
 ## About
 
+<img width="1500" height="842" alt="Lights in the Void: Coronal Loop" src="https://github.com/user-attachments/assets/0a6e5b57-dbd9-4a8e-874d-258f9af045b4" />
+
 My wife and I are designing a physical board game, tentatively titled Lights in the Void: Coronal
 Loop. Players work together to navigate a ship across the Milky Way, drawing from 200 unique cards representing real-life stars, planets, and other celestial bodies, and mapping them on the board as they go. This repo is currently a headless prototype of that game, built exclusively for automated playtesting.
 
