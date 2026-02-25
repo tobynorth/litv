@@ -1,5 +1,3 @@
-"use strict";
-
 import { AiEnumerate, Game } from 'boardgame.io';
 import { INVALID_MOVE } from 'boardgame.io/core';
 
@@ -190,26 +188,6 @@ const config: GameConfig = {
   winThreshold: null,
   maxTurns: null,
 }
-
-// Return true if `cells` is in a winning configuration.
-// function IsVictory(cells: (string | null)[]) {
-//   const positions = [
-//     [0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6],
-//     [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]
-//   ];
-
-//   const isRowComplete = (row: number[]) => {
-//     const symbols = row.map(i => cells[i]);
-//     return symbols.every(i => i !== null && i === symbols[0]);
-//   };
-
-//   return positions.map(isRowComplete).some(i => i === true);
-// }
-
-// // Return true if all `cells` are occupied.
-// function IsDraw(cells: (string | null)[]) {
-//   return cells.filter(c => c === null).length === 0;
-// }
 
 function generateHexes() {
   // Add the HOME hex
@@ -752,16 +730,6 @@ function completeCurrentPhase(G: LightsInTheVoidState) {
   });
 }
 
-// TODO: implement card selection for discard. something like below, maybe...
-// export function discardDetectedStarSystem({ G, events }: { G: LightsInTheVoidState, events: any }, cardToDiscardIndex: number) {
-//   if (cardToDiscardIndex < 0 || cardToDiscardIndex >= G.detectedStarSystems.length) {
-//     return INVALID_MOVE;
-//   }
-//   G.detectedStarSystems[cardToDiscardIndex] = G.justDrawnCards[0];
-//   G.justDrawnCards = [];
-//   events.endStage();
-// }
-
 export function ShipDestroyed(G: LightsInTheVoidState) {
   return G.shipStatus.armor <= 0 || G.shipStatus.energy <= 0;
 }
@@ -1040,13 +1008,6 @@ export const makeLightsInTheVoidGame = (
         }
       }
     },
-    // stages: {
-    //   discardDetectedStarSystem: {
-    //     moves: {
-    //       discardDetectedStarSystem
-    //     },
-    //   },
-    // }
   },
 
   moves: {
