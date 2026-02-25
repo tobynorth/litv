@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "parcel-bundler": "^1.12.5",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }
